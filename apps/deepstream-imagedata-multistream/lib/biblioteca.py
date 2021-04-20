@@ -19,6 +19,8 @@ def write_to_pickle(known_face_encodings, known_face_metadata, data_file):
 
 
 def read_pickle(pickle_file, exception=True):
+    print('este read_pickle....')
+    # quit()
     try:
         with open(pickle_file, 'rb') as f:
             known_face_encodings, known_face_metadata = pickle.load(f)
@@ -138,57 +140,30 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
     See if this is a face we already have in our face list
     """
     # If our known face list is empty, just return nothing since we can't possibly have seen this face.
-    if len(known_face_encodings) == 0 or float(tolerance) > 1 or float(tolerance) < 0:
-        return None
-
-    # Only check if there is a match
-    try:
+    if known_face_encodings:
+        # Only check if there is a match
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-    except Exception as e:
-        print(str(e))
-        print(type(known_face_encodings),'\n', type(face_encoding),'\n')
-        print(known_face_encodings, '\n\n', face_encoding)
-        #help(face_recognition.compare_faces)
-        quit()
 
-    if True in matches:
-        # If there is a match, then get the best distances only on the index with "True" to ignore the process on those that are False
-        indexes = [ index for index, item in enumerate(matches) if item]
-        print('indexes:', indexes)
-        only_true_known_face_encodings = [ known_face_encodings[ind] for ind in indexes ]
+        if True in matches:
+            # If there is a match, then get the best distances only on the index with "True" to ignore the process on those that are False
+            indexes = [ index for index, item in enumerate(matches) if item]
+            #print('indexes:', indexes)
+            only_true_known_face_encodings = [ known_face_encodings[ind] for ind in indexes ]
+            face_distances = face_recognition.face_distance(only_true_known_face_encodings, face_encoding)
 
-        face_distances = face_recognition.face_distance(only_true_known_face_encodings, face_encoding)
-        # Get the known face that had the lowest distance (i.e. most similar) from the unknown face.
-        best_match_index = np.argmin(face_distances)
+            # Get the known face that had the lowest distance (i.e. most similar) from the unknown face.
+            best_match_index = np.argmin(face_distances)
+    
+            if face_distances[best_match_index] < tolerance:
+                only_true_known_face_metadata = [ known_face_metadata[ind] for ind in indexes ]
+                #print('lookup best_match_index: {} and indexes: {} , real meta index {}'.format(best_match_index,indexes, indexes[best_match_index]))
+                #print('lookup best_match_metadata_content: ', known_face_metadata[best_match_index])
+                #print('lookup only_true_known_face_metadata: ', only_true_known_face_metadata[best_match_index])
+                #quit()
+                #return known_face_metadata[best_match_index], best_match_index
+                return known_face_metadata[best_match_index], indexes[best_match_index]
 
-        if face_distances[best_match_index] < tolerance:
-            # If we have a match, look up the metadata we've saved for it (like the first time we saw it, etc)
-            #try:
-            #    print('aqui...', known_face_metadata)
-            #    metadata = [ known_face_metadata[ind] for ind in indexes ]
-            #except Exception as e:
-            #    print(str(e))
-            #    quit()
-            #metadata = [ known_face_metadata[ind] for ind in indexes ]
-            #metadata = known_face_metadata[best_match_index]
-            #print(metadata)
-            #quit()
-
-            # Update the metadata for the face so we can keep track of how recently we have seen this face.
-            #metadata["last_seen"] = datetime.now()
-            #metadata["seen_frames"] += 1
-
-            #if datetime.now() - metadata["first_seen_this_interaction"] > timedelta(minutes=5):
-            #    metadata["first_seen_this_interaction"] = datetime.now()
-            #    metadata["seen_count"] += 1
-
-            #return metadata
-            print('best_match_index: ', best_match_index)
-            print(known_face_metadata[best_match_index])
-
-            return known_face_metadata[best_match_index], best_match_index
-
-    return None
+    return None, None
 
 
 def encode_known_faces(known_faces_path, output_file, new_file = True):

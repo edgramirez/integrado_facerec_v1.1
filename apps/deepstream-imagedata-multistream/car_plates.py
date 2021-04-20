@@ -146,21 +146,15 @@ def crop_and_get_faces_locations(n_frame, obj_meta, confidence):
     return crop_image
 
 
-def add_new_face_metadata(face_image, name, confidence, frame_number):
+def add_new_face_metadata(face_image, name, confidence):
     """
     Add a new person to our list of known faces
     """
     # Add a new matching dictionary entry to our metadata list.
     global known_face_metadata, total_visitors
     today_now = datetime.now()
-    try:
-        #known_face_metadata.append('r')
-        a = 0
-    except Exception as e:
-        print(type(known_face_metadata))
-        print(known_face_metadata)
-        quit()
 
+    print('total antes de actualizar VAR meta {} ..\n\n VAR meta antes de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
     known_face_metadata.append({
         'name': name,
         'first_seen': today_now,
@@ -169,27 +163,28 @@ def add_new_face_metadata(face_image, name, confidence, frame_number):
         'confidence': confidence,
         'last_seen': today_now,
         'seen_count': 1,
-        'seen_in_frames': [frame_number]
+        'seen_frames': 1
     })
-    print('el nuevo meta que voy a guardar', known_face_metadata)
-
+    print('total despues de actualizar VAR meta {} ..\n\n VAR meta despues de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
     total_visitors = len(known_face_metadata)
     return known_face_metadata
 
 
 def update_faces_encodings(face_encoding):
     global known_face_encodings
+    print('VAR encodings antes de agregar nuevo {}'.format(len(known_face_encodings)))
     known_face_encodings.append(face_encoding)
+    print('VAR encodings despues de agregar nuevo {}'.format(len(known_face_encodings)))
 
 
-def register_new_face_3(face_encoding, image, name, confidence, frame_number):
+def register_new_face_3(face_encoding, image, name, confidence):
     # Add the new face metadata to our known faces metadata
-    add_new_face_metadata(image, name, confidence, frame_number)
+    add_new_face_metadata(image, name, confidence)
     # Add the face encoding to the list of known faces encodings
     update_faces_encodings(face_encoding)
 
 
-def clasify_to_known_and_unknown(frame_image, confidence, frame_number, **kwargs):
+def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
     find = kwargs.get('find', False)
     silence = kwargs.get('silence', False)
 
@@ -199,43 +194,35 @@ def clasify_to_known_and_unknown(frame_image, confidence, frame_number, **kwargs
     if face_encodings:
         # get the current information of the database
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-
-        if len(known_face_metadata) == 0 or len(known_face_encodings) == 0:
-            metadata = None
-        else:
-            metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
-            #metadata = biblio.lookup_known_face(face_encodings, known_face_encodings, known_face_metadata)
+        if com.file_exists_and_not_empty('/tmp/data/video_encoded_faces/test_video_default.data'):
+            print(total_visitors, os.stat('/tmp/data/video_encoded_faces/test_video_default.data').st_size)
+        
+        metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
 
         # If we found the face, label the face with some useful information.
         if metadata:
             today_now = datetime.now()
-            print('uno ya visto:\n\n', metadata)
+            print('detecting a ya visto... analizando el tiempo')
+            if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
+                print('detecting a uno ya visto:\n\n', metadata)
+    
+                print('================')
+                known_face_metadata[best_index]['last_seen'] = today_now
+                known_face_metadata[best_index]['seen_count'] += 1
+                known_face_metadata[best_index]['seen_frames'] += 1
 
-            print('================')
-            #face_label = f"{metadata['name']} {int(time_at_door.total_seconds())}s"
-            #metadata['time_at_door'] = today_now - metadata['first_seen_this_interaction']
-            metadata['last_seen'] = today_now
-            try:
-                metadata['seen_count'] += 1
-            except Exception as e:
-                print('la exception:::', str(e))
-                quit()
-            metadata['seen_in_frames'].append(frame_number)
-            # replacing with new data
-            set_metadata(metadata)
-            write_to_db()
-            total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-            print('a dormir',known_face_metadata)
-            quit()
+                # replacing with new data
+                set_metadata(known_face_metadata)
+                write_to_db()
         else:  # If this is a new face, add it to our list of known faces
             program_action = get_action()
             if program_action == actions['read']:
-                print('reading ... nuevo', total_visitors)
+                print('detecting a ... nuevo', total_visitors)
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
 
                 # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
-                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, frame_number)
+                register_new_face_3(face_encodings[0], frame_image, face_label, confidence)
                 write_to_db()
                 return True
 
@@ -300,7 +287,7 @@ def tiler_sink_pad_buffer_probe(pad,info,u_data):
                 # the input should be address of buffer and batch_id
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
-                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence, frame_number):
+                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence):
                     save_image = True
             try: 
                 l_obj=l_obj.next

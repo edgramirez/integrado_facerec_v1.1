@@ -50,7 +50,7 @@ def write_to_pickle(data, data_file):
         print("saving into file...", data_file)
 
 
-def read_pickle(pickle_file, exception=True):
+def read_pickle_2(pickle_file, exception=True):
     data = []
     try:
         with open(pickle_file, 'rb') as f:
@@ -67,8 +67,22 @@ def read_pickle(pickle_file, exception=True):
         else:
             return 0, []
 
+
+def read_pickle(pickle_file, exception=True):
+    try:
+        with open(pickle_file, 'rb') as f:
+            known_face_encodings, known_face_metadata = pickle.load(f)
+            return len(known_face_metadata), known_face_encodings, known_face_metadata
+    except OSError as e:
+        if exception:
+            com.log_error("Unable to open pickle_file: {}, original exception {}".format(pickle_file, str(e)))
+        else:
+            return 0, [], []
+
+
 metadata_file = 'data/video_encoded_faces/test_video_default_metadata.dat'
 encodings_file = 'data/video_encoded_faces/test_video_default_encodings.dat'
+test='/tmp/data/video_encoded_faces/test_video_default.data'
 '''
 images_file = '/tmp/images.data'
 
@@ -101,7 +115,7 @@ write_to_pickle(known_face_metadata, images_file)
 write_to_pickle(known_face_image, encodings_file)
 '''
 
-datos = read_pickle(metadata_file)
+t, datos, meta = read_pickle(test)
 #datos = read_pickle(encodings_file)
 numero = len(datos)
-print('numero:',numero,'\ndatos:\n', datos)
+print('numero:',numero,'\ndatos:\n', meta)
