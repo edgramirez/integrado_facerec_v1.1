@@ -78,6 +78,8 @@ CURRENT_DIR = os.getcwd()
 
 
 global total_visitors, known_face_encodings, known_face_metadata, actions
+known_face_metadata = []
+known_face_encodings = []
 actions = {'read': 1, 'find': 2, 'compare': 3}
 
 
@@ -104,6 +106,10 @@ def set_known_faces_db(total, encodings, metadata):
     known_face_encodings = encodings
     known_face_metadata = metadata
 
+
+def set_metadata(metadata):
+    global known_face_metadata
+    known_face_metadata = metadata
 
 ### getters ###
 
@@ -140,24 +146,32 @@ def crop_and_get_faces_locations(n_frame, obj_meta, confidence):
     return crop_image
 
 
-def add_new_face_metadata(face_image, name, confidence):
+def add_new_face_metadata(face_image, name, confidence, frame_number):
     """
     Add a new person to our list of known faces
     """
     # Add a new matching dictionary entry to our metadata list.
     global known_face_metadata, total_visitors
     today_now = datetime.now()
+    try:
+        #known_face_metadata.append('r')
+        a = 0
+    except Exception as e:
+        print(type(known_face_metadata))
+        print(known_face_metadata)
+        quit()
 
     known_face_metadata.append({
-        "first_seen": today_now,
-        "first_seen_this_interaction": today_now,
-        "last_seen": today_now,
-        "seen_count": 1,
-        "seen_frames": 1,
-        "name": name,
-        "confidence": confidence,
-        "face_image": face_image,
+        'name': name,
+        'first_seen': today_now,
+        'first_seen_this_interaction': today_now,
+        'face_image': face_image,
+        'confidence': confidence,
+        'last_seen': today_now,
+        'seen_count': 1,
+        'seen_in_frames': [frame_number]
     })
+    print('el nuevo meta que voy a guardar', known_face_metadata)
 
     total_visitors = len(known_face_metadata)
     return known_face_metadata
@@ -168,14 +182,14 @@ def update_faces_encodings(face_encoding):
     known_face_encodings.append(face_encoding)
 
 
-def register_new_face_3(face_encoding, image, name, confidence):
+def register_new_face_3(face_encoding, image, name, confidence, frame_number):
     # Add the new face metadata to our known faces metadata
-    add_new_face_metadata(image, name, confidence)
+    add_new_face_metadata(image, name, confidence, frame_number)
     # Add the face encoding to the list of known faces encodings
     update_faces_encodings(face_encoding)
 
 
-def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
+def clasify_to_known_and_unknown(frame_image, confidence, frame_number, **kwargs):
     find = kwargs.get('find', False)
     silence = kwargs.get('silence', False)
 
@@ -189,13 +203,30 @@ def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
         if len(known_face_metadata) == 0 or len(known_face_encodings) == 0:
             metadata = None
         else:
-            metadata = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+            metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+            #metadata = biblio.lookup_known_face(face_encodings, known_face_encodings, known_face_metadata)
 
         # If we found the face, label the face with some useful information.
         if metadata:
-            print('uno ya visto')
-            time_at_door = datetime.now() - metadata['first_seen_this_interaction']
-            face_label = f"{metadata['name']} {int(time_at_door.total_seconds())}s"
+            today_now = datetime.now()
+            print('uno ya visto:\n\n', metadata)
+
+            print('================')
+            #face_label = f"{metadata['name']} {int(time_at_door.total_seconds())}s"
+            #metadata['time_at_door'] = today_now - metadata['first_seen_this_interaction']
+            metadata['last_seen'] = today_now
+            try:
+                metadata['seen_count'] += 1
+            except Exception as e:
+                print('la exception:::', str(e))
+                quit()
+            metadata['seen_in_frames'].append(frame_number)
+            # replacing with new data
+            set_metadata(metadata)
+            write_to_db()
+            total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
+            print('a dormir',known_face_metadata)
+            quit()
         else:  # If this is a new face, add it to our list of known faces
             program_action = get_action()
             if program_action == actions['read']:
@@ -204,7 +235,8 @@ def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
                 total_visitors += 1
 
                 # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
-                register_new_face_3(face_encodings[0], frame_image, face_label, confidence)
+                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, frame_number)
+                write_to_db()
                 return True
 
     return False
@@ -268,7 +300,7 @@ def tiler_sink_pad_buffer_probe(pad,info,u_data):
                 # the input should be address of buffer and batch_id
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
-                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence):
+                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence, frame_number):
                     save_image = True
             try: 
                 l_obj=l_obj.next
@@ -280,9 +312,6 @@ def tiler_sink_pad_buffer_probe(pad,info,u_data):
         fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
         if save_image:
             # acumulate the faces of this frame in a variable to be saved before leaving the tiler
-            print('edgar............................')
-            #cv2.imwrite(folder_name+"/stream_"+str(frame_meta.pad_index)+"/frame_"+str(frame_number)+".jpg", frame_image)
-            write_to_db()
             cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
         saved_count["stream_"+str(frame_meta.pad_index)]+=1        
         try:
@@ -296,6 +325,7 @@ def tiler_sink_pad_buffer_probe(pad,info,u_data):
 
 
 def write_to_db():
+    print('edgar............................')
     total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
     #print('escribiendo a db',total_visitors,'\n',known_face_encodings,'\n\n',known_face_metadata,)
     #quit()

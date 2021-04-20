@@ -154,6 +154,7 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
     if True in matches:
         # If there is a match, then get the best distances only on the index with "True" to ignore the process on those that are False
         indexes = [ index for index, item in enumerate(matches) if item]
+        print('indexes:', indexes)
         only_true_known_face_encodings = [ known_face_encodings[ind] for ind in indexes ]
 
         face_distances = face_recognition.face_distance(only_true_known_face_encodings, face_encoding)
@@ -162,18 +163,30 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
 
         if face_distances[best_match_index] < tolerance:
             # If we have a match, look up the metadata we've saved for it (like the first time we saw it, etc)
-            metadata = [ known_face_metadata[ind] for ind in indexes ]
-            metadata = metadata[best_match_index]
+            #try:
+            #    print('aqui...', known_face_metadata)
+            #    metadata = [ known_face_metadata[ind] for ind in indexes ]
+            #except Exception as e:
+            #    print(str(e))
+            #    quit()
+            #metadata = [ known_face_metadata[ind] for ind in indexes ]
+            #metadata = known_face_metadata[best_match_index]
+            #print(metadata)
+            #quit()
 
             # Update the metadata for the face so we can keep track of how recently we have seen this face.
-            metadata["last_seen"] = datetime.now()
-            metadata["seen_frames"] += 1
+            #metadata["last_seen"] = datetime.now()
+            #metadata["seen_frames"] += 1
 
-            if datetime.now() - metadata["first_seen_this_interaction"] > timedelta(minutes=5):
-                metadata["first_seen_this_interaction"] = datetime.now()
-                metadata["seen_count"] += 1
+            #if datetime.now() - metadata["first_seen_this_interaction"] > timedelta(minutes=5):
+            #    metadata["first_seen_this_interaction"] = datetime.now()
+            #    metadata["seen_count"] += 1
 
-            return metadata
+            #return metadata
+            print('best_match_index: ', best_match_index)
+            print(known_face_metadata[best_match_index])
+
+            return known_face_metadata[best_match_index], best_match_index
 
     return None
 
