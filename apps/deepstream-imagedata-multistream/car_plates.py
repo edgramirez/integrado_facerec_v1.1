@@ -285,6 +285,9 @@ def tiler_sink_pad_buffer_probe(pad,info,u_data):
             if obj_meta.class_id == 0 and obj_meta.confidence > 0.85:
                 # Getting Image data using nvbufsurface
                 # the input should be address of buffer and batch_id
+                #print('ID./.............',obj_meta.unique_component_id)
+                #print('ID./.............',dir(obj_meta))
+                #quit()
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
                 if clasify_to_known_and_unknown(frame_image, obj_meta.confidence):
