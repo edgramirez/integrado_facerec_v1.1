@@ -231,7 +231,8 @@ def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
 
 # tiler_sink_pad_buffer_probe  will extract metadata received on tiler src pad
 # and update params for drawing rectangle, object information etc.
-def tiler_sink_pad_buffer_probe(pad,info,u_data):
+#def tiler_sink_pad_buffer_probe(pad,info,u_data):
+def tiler_src_pad_buffer_probe(pad,info,u_data):
     frame_number=0
     num_rects=0
     gst_buffer = info.get_buffer()
@@ -285,7 +286,7 @@ def tiler_sink_pad_buffer_probe(pad,info,u_data):
             if obj_meta.class_id == 0 and obj_meta.confidence > 0.85:
                 # Getting Image data using nvbufsurface
                 # the input should be address of buffer and batch_id
-                #print('ID./.............',obj_meta.unique_component_id)
+                #print('ID./.............',obj_meta.object_id)
                 #print('ID./.............',dir(obj_meta))
                 #quit()
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
@@ -492,6 +493,15 @@ def main(args):
     pgie = Gst.ElementFactory.make("nvinfer", "primary-inference")
     if not pgie:
         sys.stderr.write(" Unable to create pgie \n")
+    
+    # Creation of tracking to follow up the model face
+    # April 21th
+    # ERM
+    tracker = Gst.ElementFactory.make("nvtracker", "tracker")
+    if not tracker:
+        sys.stderr.write(" Unable to create tracker \n")
+    
+    
     # Add nvvidconv1 and filter1 to convert the frames to RGBA
     # which is easier to work with in Python.
     print("Creating nvvidconv1 \n ")
@@ -543,11 +553,42 @@ def main(args):
     streammux.set_property('batched-push-timeout', 4000000)
     print('CURRENT_DIR', CURRENT_DIR)
     pgie.set_property('config-file-path',CURRENT_DIR + "/configs/pgie_config_facenet.txt")
-    print("hola")
     pgie_batch_size=pgie.get_property("batch-size")
     if(pgie_batch_size != number_sources):
         print("WARNING: Overriding infer-config batch-size",pgie_batch_size," with number of sources ", number_sources," \n")
         pgie.set_property("batch-size",number_sources)
+
+
+    # Set properties of tracker
+    # April 21th
+    # ERM
+
+    config = configparser.ConfigParser()
+    config.read('configs/tracker_config.txt')
+    config.sections()
+    
+    for key in config['tracker']:
+        if key == 'tracker-width':
+            tracker_width = config.getint('tracker', key)
+            tracker.set_property('tracker-width', tracker_width)
+        elif key == 'tracker-height':
+            tracker_height = config.getint('tracker', key)
+            tracker.set_property('tracker-height', tracker_height)
+        elif key == 'gpu-id':
+            tracker_gpu_id = config.getint('tracker', key)
+            tracker.set_property('gpu_id', tracker_gpu_id)
+        elif key == 'll-lib-file':
+            tracker_ll_lib_file = config.get('tracker', key)
+            tracker.set_property('ll-lib-file', tracker_ll_lib_file)
+        elif key == 'll-config-file':
+            tracker_ll_config_file = config.get('tracker', key)
+            tracker.set_property('ll-config-file', tracker_ll_config_file)
+        elif key == 'enable-batch-process':
+            tracker_enable_batch_process = config.getint('tracker', key)
+            tracker.set_property('enable_batch_process', tracker_enable_batch_process)
+
+
+
     tiler_rows=int(math.sqrt(number_sources))
     tiler_columns=int(math.ceil((1.0*number_sources)/tiler_rows))
     tiler.set_property("rows",tiler_rows)
@@ -567,7 +608,13 @@ def main(args):
         tiler.set_property("nvbuf-memory-type", mem_type)
 
     print("Adding elements to Pipeline \n")
+
+    # Add tracker in pipeline
+    # April 21th
+    # ERM
+
     pipeline.add(pgie)
+    pipeline.add(tracker)     # Tracker
     pipeline.add(tiler)
     pipeline.add(nvvidconv)
     pipeline.add(filter1)
@@ -578,8 +625,11 @@ def main(args):
     pipeline.add(sink)
 
     print("Linking elements in the Pipeline \n")
-    streammux.link(pgie)    
-    pgie.link(nvvidconv1)
+
+    streammux.link(pgie)
+    pgie.link(tracker)        # se añade para tracker
+    # pgie.link(nvvidconv1)     se modifica
+    tracker.link(nvvidconv1)  # se añade para ligar tracker con los demas elementos
     nvvidconv1.link(filter1)
     filter1.link(tiler)
     tiler.link(nvvidconv)
@@ -596,11 +646,17 @@ def main(args):
     bus.add_signal_watch()
     bus.connect ("message", bus_call, loop)
 
-    tiler_sink_pad=tiler.get_static_pad("sink")
-    if not tiler_sink_pad:
+    #tiler_sink_pad=tiler.get_static_pad("sink")
+    #if not tiler_sink_pad:
+    #    sys.stderr.write(" Unable to get src pad \n")
+    #else:
+    #    tiler_sink_pad.add_probe(Gst.PadProbeType.BUFFER, tiler_sink_pad_buffer_probe, 0)
+    
+    tiler_src_pad=tiler.get_static_pad("src")
+    if not tiler_src_pad:
         sys.stderr.write(" Unable to get src pad \n")
     else:
-        tiler_sink_pad.add_probe(Gst.PadProbeType.BUFFER, tiler_sink_pad_buffer_probe, 0)
+        tiler_src_pad.add_probe(Gst.PadProbeType.BUFFER, tiler_src_pad_buffer_probe, 0)
 
     # List the sources
     print("Now playing...")
