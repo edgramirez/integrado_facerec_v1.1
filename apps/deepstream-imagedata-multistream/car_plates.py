@@ -77,7 +77,8 @@ pgie_classes_str= ["face", "Placa", "Marca","Modelo"]
 CURRENT_DIR = os.getcwd()
 
 
-global total_visitors, known_face_encodings, known_face_metadata, actions
+global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_index
+known_faces_indexes = []
 known_face_metadata = []
 known_face_encodings = []
 actions = {'read': 1, 'find': 2, 'compare': 3}
@@ -146,7 +147,7 @@ def crop_and_get_faces_locations(n_frame, obj_meta, confidence):
     return crop_image
 
 
-def add_new_face_metadata(face_image, name, confidence):
+def add_new_face_metadata(face_image, name, confidence, face_id):
     """
     Add a new person to our list of known faces
     """
@@ -154,9 +155,10 @@ def add_new_face_metadata(face_image, name, confidence):
     global known_face_metadata, total_visitors
     today_now = datetime.now()
 
-    print('total antes de actualizar VAR meta {} ..\n\n VAR meta antes de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
+    #print('total antes de actualizar VAR meta {} ..\n\n VAR meta antes de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
     known_face_metadata.append({
         'name': name,
+        'face_id': face_id,
         'first_seen': today_now,
         'first_seen_this_interaction': today_now,
         'face_image': face_image,
@@ -165,65 +167,100 @@ def add_new_face_metadata(face_image, name, confidence):
         'seen_count': 1,
         'seen_frames': 1
     })
-    print('total despues de actualizar VAR meta {} ..\n\n VAR meta despues de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
+    #print('total despues de actualizar VAR meta {} ..\n\n VAR meta despues de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
     total_visitors = len(known_face_metadata)
     return known_face_metadata
 
 
 def update_faces_encodings(face_encoding):
     global known_face_encodings
-    print('VAR encodings antes de agregar nuevo {}'.format(len(known_face_encodings)))
+    #print('VAR encodings antes de agregar nuevo {}'.format(len(known_face_encodings)))
     known_face_encodings.append(face_encoding)
-    print('VAR encodings despues de agregar nuevo {}'.format(len(known_face_encodings)))
+    #print('VAR encodings despues de agregar nuevo {}'.format(len(known_face_encodings)))
 
 
-def register_new_face_3(face_encoding, image, name, confidence):
+def register_new_face_3(face_encoding, image, name, confidence, face_id):
     # Add the new face metadata to our known faces metadata
-    add_new_face_metadata(image, name, confidence)
+    add_new_face_metadata(image, name, confidence, face_id)
     # Add the face encoding to the list of known faces encodings
     update_faces_encodings(face_encoding)
+    # Add new element to the list - this list maps and mirrows the face_ids for the meta
+    add_new_known_faces_indexes(face_id)
 
 
-def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
+def add_new_known_faces_indexes(new_value):
+    global known_faces_indexes
+    #print('guardandon nuevo valro de indices', new_value)
+    if new_value not in known_faces_indexes:
+        known_faces_indexes.append(new_value)
+
+
+def update_known_faces_indexes(best_index, new_value):
+    global known_faces_indexes
+    known_faces_indexes[best_index] =  new_value
+
+
+def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
     find = kwargs.get('find', False)
     silence = kwargs.get('silence', False)
 
     # try to encode the crop image with the detected face
     face_encodings = face_recognition.face_encodings(frame_image)
     
+    update = False
     if face_encodings:
         # get the current information of the database
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-        if com.file_exists_and_not_empty('/tmp/data/video_encoded_faces/test_video_default.data'):
-            print(total_visitors, os.stat('/tmp/data/video_encoded_faces/test_video_default.data').st_size)
-        
-        metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+        print(obj_id, known_faces_indexes, '........................')
+        #print('TAL VEZ') 
+        if obj_id in known_faces_indexes:
+            best_index = known_faces_indexes.index(obj_id)
+            #print('IGUALES', obj_id, known_faces_indexes, best_index)
+            update = True
+        else:
+            metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+            #print('NO IGUALES'.format(obj_id, known_faces_indexes, best_index))
+
+            if best_index:
+                #print('CAMBIO DE ID '.format(obj_id, known_faces_indexes, best_index)) 
+                update_known_faces_indexes(best_index, obj_id)
+                update = True
+                # TODO hay que reducir esta lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer  - mismo proceso de clenaup que 
+                # en otros programas
 
         # If we found the face, label the face with some useful information.
-        if metadata:
+        if update:
+            #print('UPDATE SI TIEMPO')
             today_now = datetime.now()
-            print('detecting a ya visto... analizando el tiempo')
+            #print('detecting {} - {} .. delta {}  visto: {}'.format(today_now, known_face_metadata[best_index]['last_seen'], timedelta(seconds=1), known_face_metadata[best_index]["seen_frames"], known_face_metadata[best_index]["seen_frames"]))
+            #print(today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1)
+
             if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
-                print('detecting a uno ya visto:\n\n', metadata)
-    
-                print('================')
+                #print('detecting a uno ya visto:\n\n', metadata)
+                #print('updating')
                 known_face_metadata[best_index]['last_seen'] = today_now
                 known_face_metadata[best_index]['seen_count'] += 1
                 known_face_metadata[best_index]['seen_frames'] += 1
 
                 # replacing with new data
                 set_metadata(known_face_metadata)
-                write_to_db()
+                #write_to_db()
+                return True
+            else:
+                return False
+
         else:  # If this is a new face, add it to our list of known faces
             program_action = get_action()
             if program_action == actions['read']:
-                print('detecting a ... nuevo', total_visitors)
+                print('NUEVO', obj_id)
+                #print('detecting a ... nuevo', total_visitors, obj_id)
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
 
                 # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
-                register_new_face_3(face_encodings[0], frame_image, face_label, confidence)
-                write_to_db()
+                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, obj_id)
+                #write_to_db()
+
                 return True
 
     return False
@@ -233,6 +270,7 @@ def clasify_to_known_and_unknown(frame_image, confidence, **kwargs):
 # and update params for drawing rectangle, object information etc.
 #def tiler_sink_pad_buffer_probe(pad,info,u_data):
 def tiler_src_pad_buffer_probe(pad,info,u_data):
+    #print('ANALIZANDO')
     frame_number=0
     num_rects=0
     gst_buffer = info.get_buffer()
@@ -272,7 +310,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         PGIE_CLASS_ID_MODEL:0
         }
         while l_obj is not None:
-            #print("stream_"+str(frame_meta.pad_index))
+            print('iniciando save_image = False, ', save_image)
             try: 
                 # Casting l_obj.data to pyds.NvDsObjectMeta
                 obj_meta = pyds.NvDsObjectMeta.cast(l_obj.data)
@@ -283,7 +321,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
             # If such detections are found, annoate the frame with bboxes and confidence value.
             # Save the annotated frame to file.
             #print(obj_meta.confidence)
-            if obj_meta.class_id == 0 and obj_meta.confidence > 0.85:
+            if obj_meta.class_id == 0 and obj_meta.confidence > 0.81:
                 # Getting Image data using nvbufsurface
                 # the input should be address of buffer and batch_id
                 #print('ID./.............',obj_meta.object_id)
@@ -291,20 +329,27 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
                 #quit()
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
-                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence):
+                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id):
                     save_image = True
+                    print('asignando save_image = True, ', save_image)
             try: 
                 l_obj=l_obj.next
             except StopIteration:
                 break
 
+        print('afuera loop 2 ----------------')
+        write_to_db()
         #print("Frame Number=", frame_number, "Number of Objects=",num_rects,"Face_count=",obj_counter[PGIE_CLASS_ID_FACE],"Person_count=",obj_counter[PGIE_CLASS_ID_PERSON])
         # Get frame rate through this probe
         fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
+
+        print('evaluando save_image:', save_image)
         if save_image:
             # acumulate the faces of this frame in a variable to be saved before leaving the tiler
             cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
-        saved_count["stream_"+str(frame_meta.pad_index)]+=1        
+
+        saved_count["stream_"+str(frame_meta.pad_index)] += 1        
+
         try:
             l_frame=l_frame.next
         except StopIteration:
@@ -316,7 +361,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
 
 
 def write_to_db():
-    print('edgar............................')
+    #print('GUARDANDO..')
     total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
     #print('escribiendo a db',total_visitors,'\n',known_face_encodings,'\n\n',known_face_metadata,)
     #quit()
@@ -439,7 +484,6 @@ def main(args):
     set_output_db_name(output_db_name)
 
     # extract the database information and transfere it to the variables
-    #total, encodings, metadata = biblio.read_pickle(known_faces_db_name, False)
     total, encodings, metadata = biblio.read_pickle(output_db_name, False)
     set_known_faces_db(total, encodings, metadata)
 
@@ -451,7 +495,6 @@ def main(args):
             action = 'compare'
 
     set_action(actions[action])
-
 
     # Create gstreamer elements */
     # Create Pipeline element that will form a connection of other elements

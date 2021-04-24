@@ -1,6 +1,8 @@
 import pickle
 import os
 from os import walk
+import cv2
+
 
 
 def log_error(msg, _quit=True):
@@ -118,4 +120,12 @@ write_to_pickle(known_face_image, encodings_file)
 t, datos, meta = read_pickle(test)
 #datos = read_pickle(encodings_file)
 numero = len(datos)
-print('numero:',numero,'\ndatos:\n', meta)
+print('numero:',numero,'\ndatos:\n')
+
+
+i = 0 
+for m in meta:
+    img = meta[i]['face_image']
+    cv2.imwrite("/tmp/stream_9/frame_" + str(i) + ".jpg", img)
+    i += 1
+

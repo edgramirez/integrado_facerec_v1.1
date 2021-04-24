@@ -15,7 +15,7 @@ def write_to_pickle(known_face_encodings, known_face_metadata, data_file):
     with open(data_file, mode='wb') as f:
         face_data = [known_face_encodings, known_face_metadata]
         pickle.dump(face_data, f)
-        print("Known faces saved.................................................... OK")
+        #print("Known faces saved.................................................... OK")
 
 
 def read_pickle(pickle_file, exception=True):
