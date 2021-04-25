@@ -212,7 +212,7 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
         # get the current information of the database
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
         print(obj_id, known_faces_indexes, '........................')
-        #print('TAL VEZ') 
+        print('TAL VEZ') 
         if obj_id in known_faces_indexes:
             best_index = known_faces_indexes.index(obj_id)
             #print('IGUALES', obj_id, known_faces_indexes, best_index)
@@ -230,14 +230,15 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
 
         # If we found the face, label the face with some useful information.
         if update:
-            #print('UPDATE SI TIEMPO')
+            print('UPDATE SI TIEMPO')
             today_now = datetime.now()
             #print('detecting {} - {} .. delta {}  visto: {}'.format(today_now, known_face_metadata[best_index]['last_seen'], timedelta(seconds=1), known_face_metadata[best_index]["seen_frames"], known_face_metadata[best_index]["seen_frames"]))
             #print(today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1)
 
+            cv2.imwrite("/tmp/stream_11" + "/frame_" + str(confidence) + ".jpg", frame_image)
             if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
                 #print('detecting a uno ya visto:\n\n', metadata)
-                #print('updating')
+                print('UPDATING')
                 known_face_metadata[best_index]['last_seen'] = today_now
                 known_face_metadata[best_index]['seen_count'] += 1
                 known_face_metadata[best_index]['seen_frames'] += 1
@@ -253,6 +254,7 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
             program_action = get_action()
             if program_action == actions['read']:
                 print('NUEVO', obj_id)
+                cv2.imwrite("/tmp/stream_11" + "/frame_" + str(confidence) + ".jpg", frame_image)
                 #print('detecting a ... nuevo', total_visitors, obj_id)
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
@@ -260,7 +262,6 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
                 # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
                 register_new_face_3(face_encodings[0], frame_image, face_label, confidence, obj_id)
                 #write_to_db()
-
                 return True
 
     return False
@@ -285,6 +286,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
     batch_meta = pyds.gst_buffer_get_nvds_batch_meta(hash(gst_buffer))
     
     global total_visitors
+    save_image = False
     l_frame = batch_meta.frame_meta_list
     while l_frame is not None:
         try:
@@ -301,7 +303,6 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         l_obj=frame_meta.obj_meta_list
         num_rects = frame_meta.num_obj_meta
         is_first_obj = True
-        save_image = False
        
         obj_counter = {
         PGIE_CLASS_ID_FACE:0,
@@ -310,7 +311,6 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         PGIE_CLASS_ID_MODEL:0
         }
         while l_obj is not None:
-            print('iniciando save_image = False, ', save_image)
             try: 
                 # Casting l_obj.data to pyds.NvDsObjectMeta
                 obj_meta = pyds.NvDsObjectMeta.cast(l_obj.data)
@@ -321,7 +321,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
             # If such detections are found, annoate the frame with bboxes and confidence value.
             # Save the annotated frame to file.
             #print(obj_meta.confidence)
-            if obj_meta.class_id == 0 and obj_meta.confidence > 0.81:
+            if obj_meta.class_id == 0 and obj_meta.confidence > 0.78:
                 # Getting Image data using nvbufsurface
                 # the input should be address of buffer and batch_id
                 #print('ID./.............',obj_meta.object_id)
@@ -329,21 +329,18 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
                 #quit()
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
+
                 if clasify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id):
                     save_image = True
-                    print('asignando save_image = True, ', save_image)
             try: 
                 l_obj=l_obj.next
             except StopIteration:
                 break
 
-        print('afuera loop 2 ----------------')
-        write_to_db()
         #print("Frame Number=", frame_number, "Number of Objects=",num_rects,"Face_count=",obj_counter[PGIE_CLASS_ID_FACE],"Person_count=",obj_counter[PGIE_CLASS_ID_PERSON])
         # Get frame rate through this probe
         fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
 
-        print('evaluando save_image:', save_image)
         if save_image:
             # acumulate the faces of this frame in a variable to be saved before leaving the tiler
             cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
@@ -355,13 +352,15 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         except StopIteration:
             break
 
+    if save_image:
+        write_to_db()
     #total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
     #biblio.write_to_pickle(known_face_encodings, known_face_metadata, get_output_db_name())
     return Gst.PadProbeReturn.OK
 
 
 def write_to_db():
-    #print('GUARDANDO..')
+    print('GUARDANDO..')
     total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
     #print('escribiendo a db',total_visitors,'\n',known_face_encodings,'\n\n',known_face_metadata,)
     #quit()
