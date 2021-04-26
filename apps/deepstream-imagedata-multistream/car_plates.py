@@ -155,7 +155,6 @@ def add_new_face_metadata(face_image, name, confidence, face_id):
     global known_face_metadata, total_visitors
     today_now = datetime.now()
 
-    #print('total antes de actualizar VAR meta {} ..\n\n VAR meta antes de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
     known_face_metadata.append({
         'name': name,
         'face_id': face_id,
@@ -167,7 +166,6 @@ def add_new_face_metadata(face_image, name, confidence, face_id):
         'seen_count': 1,
         'seen_frames': 1
     })
-    #print('total despues de actualizar VAR meta {} ..\n\n VAR meta despues de actualizar {}'.format(len(known_face_metadata), known_face_metadata))
     total_visitors = len(known_face_metadata)
     return known_face_metadata
 
@@ -211,15 +209,13 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
     if face_encodings:
         # get the current information of the database
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-        print(obj_id, known_faces_indexes, '........................')
-        print('TAL VEZ') 
+        #print(obj_id, known_faces_indexes, '........................')
+        #print('TAL VEZ') 
         if obj_id in known_faces_indexes:
             best_index = known_faces_indexes.index(obj_id)
-            #print('IGUALES', obj_id, known_faces_indexes, best_index)
             update = True
         else:
             metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
-            #print('NO IGUALES'.format(obj_id, known_faces_indexes, best_index))
 
             if best_index:
                 #print('CAMBIO DE ID '.format(obj_id, known_faces_indexes, best_index)) 
@@ -230,22 +226,17 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
 
         # If we found the face, label the face with some useful information.
         if update:
-            print('UPDATE SI TIEMPO')
             today_now = datetime.now()
-            #print('detecting {} - {} .. delta {}  visto: {}'.format(today_now, known_face_metadata[best_index]['last_seen'], timedelta(seconds=1), known_face_metadata[best_index]["seen_frames"], known_face_metadata[best_index]["seen_frames"]))
-            #print(today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1)
 
-            cv2.imwrite("/tmp/stream_11" + "/frame_" + str(confidence) + ".jpg", frame_image)
             if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
-                #print('detecting a uno ya visto:\n\n', metadata)
                 print('UPDATING')
                 known_face_metadata[best_index]['last_seen'] = today_now
                 known_face_metadata[best_index]['seen_count'] += 1
                 known_face_metadata[best_index]['seen_frames'] += 1
 
-                # replacing with new data
+                # replacing global metadata with new data
                 set_metadata(known_face_metadata)
-                #write_to_db()
+
                 return True
             else:
                 return False
@@ -253,15 +244,16 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
         else:  # If this is a new face, add it to our list of known faces
             program_action = get_action()
             if program_action == actions['read']:
-                print('NUEVO', obj_id)
-                cv2.imwrite("/tmp/stream_11" + "/frame_" + str(confidence) + ".jpg", frame_image)
-                #print('detecting a ... nuevo', total_visitors, obj_id)
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
 
                 # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
                 register_new_face_3(face_encodings[0], frame_image, face_label, confidence, obj_id)
-                #write_to_db()
+
+                # TODO: remove this file writting cause is only for debug purposes
+                #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
+                cv2.imwrite(folder_name + "/stream_0/frame_" + str(total_visitors) + ".jpg", frame_image)
+
                 return True
 
     return False
@@ -269,9 +261,7 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
 
 # tiler_sink_pad_buffer_probe  will extract metadata received on tiler src pad
 # and update params for drawing rectangle, object information etc.
-#def tiler_sink_pad_buffer_probe(pad,info,u_data):
-def tiler_src_pad_buffer_probe(pad,info,u_data):
-    #print('ANALIZANDO')
+def tiler_src_pad_buffer_probe(pad, info, u_data):
     frame_number=0
     num_rects=0
     gst_buffer = info.get_buffer()
@@ -320,13 +310,9 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
             # Periodically check for objects with borderline confidence value that may be false positive detections.
             # If such detections are found, annoate the frame with bboxes and confidence value.
             # Save the annotated frame to file.
-            #print(obj_meta.confidence)
             if obj_meta.class_id == 0 and obj_meta.confidence > 0.78:
                 # Getting Image data using nvbufsurface
                 # the input should be address of buffer and batch_id
-                #print('ID./.............',obj_meta.object_id)
-                #print('ID./.............',dir(obj_meta))
-                #quit()
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
 
@@ -341,10 +327,6 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         # Get frame rate through this probe
         fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
 
-        if save_image:
-            # acumulate the faces of this frame in a variable to be saved before leaving the tiler
-            cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
-
         saved_count["stream_"+str(frame_meta.pad_index)] += 1        
 
         try:
@@ -354,16 +336,13 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
 
     if save_image:
         write_to_db()
-    #total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-    #biblio.write_to_pickle(known_face_encodings, known_face_metadata, get_output_db_name())
+
     return Gst.PadProbeReturn.OK
 
 
 def write_to_db():
     print('GUARDANDO..')
     total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-    #print('escribiendo a db',total_visitors,'\n',known_face_encodings,'\n\n',known_face_metadata,)
-    #quit()
     biblio.write_to_pickle(known_face_encodings, known_face_metadata, get_output_db_name())
 
 
@@ -465,9 +444,8 @@ def main(args):
     folder_name=args[-1]
     print(folder_name)
     if path.exists(folder_name):
-        print("Ya existe %s " % folder_name)
-        #sys.stderr.write("The output folder %s already exists. Please remove it first.\n" % folder_name)
-        #sys.exit(1)
+        sys.stderr.write("The output folder %s already exists. Please remove it first.\n" % folder_name)
+        sys.exit(1)
     else:
         os.mkdir(folder_name)
         print("Frames will be saved in ",folder_name)
@@ -628,7 +606,6 @@ def main(args):
         elif key == 'enable-batch-process':
             tracker_enable_batch_process = config.getint('tracker', key)
             tracker.set_property('enable_batch_process', tracker_enable_batch_process)
-
 
 
     tiler_rows=int(math.sqrt(number_sources))

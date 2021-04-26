@@ -115,15 +115,17 @@ def register_new_face(known_face_metadata, face_image, name):
     # Add a matching dictionary entry to our metadata list.
     # We can use this to keep track of how many times a person has visited, when we last saw them, etc.
     today_now = datetime.now()
+
     known_face_metadata.append({
-        "first_seen": today_now,
-        "first_seen_this_interaction": today_now,
-        "last_seen": today_now,
-        "seen_count": 1,
-        "seen_frames": 1,
-        "name": name,
-        "confidence": 0.0,
-        "face_image": face_image,
+        'name': name,
+        'face_id': 0,
+        'first_seen': today_now,
+        'first_seen_this_interaction': today_now,
+        'face_image': face_image,
+        'confidence': 0,
+        'last_seen': today_now,
+        'seen_count': 1,
+        'seen_frames': 1
     })
 
     return known_face_metadata
@@ -166,8 +168,8 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
     return None, None
 
 
-def encode_known_faces(known_faces_path, output_file, new_file = True):
-    files, root = com.read_images_in_dir(known_faces_path)
+def encode_known_faces(image_path, output_file, new_file = True):
+    files, root = com.read_images_in_dir(image_path)
 
     names = []
     known_face_encodings = []
@@ -185,24 +187,38 @@ def encode_known_faces(known_faces_path, output_file, new_file = True):
 
         # if got a face, loads the image, else ignores it
         if face_location:
-            name = os.path.splitext(file_name)[0]
-            names.append(name)
-
             # Grab the image of the face from the current frame of video
             top, right, bottom, left = face_location[0]
             face_image = rgb_small_frame[top:bottom, left:right]
             face_image = cv2.resize(face_image, (150, 150))
 
-            encoding = face_recognition.face_encodings(face_image)[0]
-            known_face_encodings.append(encoding)
+            #cv2.imwrite("/tmp/e_1.jpg", face_image)
 
-            new_known_face_metadata = register_new_face(known_face_metadata, face_image, name)
+            encoding = face_recognition.face_encodings(face_image)
+            #print(encoding)
+            # if the encoding is empty we assume the image was already treated and the we take only the original entry
+            if encoding:
+                known_face_encodings.append(encoding[0])
+            else:
+                encoding = face_recognition.face_encodings(rgb_small_frame)
+                #print(encoding)
+            #quit()
+
+            if encoding:
+                name = os.path.splitext(file_name)[0]
+                names.append(name)
+                new_known_face_metadata = register_new_face(known_face_metadata, face_image, name)
+            else:
+                print('Ningun archivo de imagen contine rostros. {}'.format(image_path))
+        else:
+            rgb_frame = cv2.cvtColor(frame_image, cv2.COLOR_RGB2BGR)
+            face_location = face_recognition.face_locations(rgb_small_frame)
+            #quit()
     if names:
-        print(names)
-        #write_to_pickle(known_face_encodings, new_known_face_metadata, output_file, new_file)
+        print(name)
         write_to_pickle(known_face_encodings, new_known_face_metadata, output_file)
     else:
-        print('Ningun archivo de imagen contine rostros')
+        print('Ningun archivo de imagen contine rostros: {}'.format(image_path))
 
 
 def compare_pickle_against_unknown_images(pickle_file, image_dir):
