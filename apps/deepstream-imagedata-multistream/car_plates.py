@@ -198,10 +198,7 @@ def update_known_faces_indexes(best_index, new_value):
     known_faces_indexes[best_index] =  new_value
 
 
-def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
-    find = kwargs.get('find', False)
-    silence = kwargs.get('silence', False)
-
+def clasify_to_known_and_unknown(frame_image, confidence, obj_id):
     # try to encode the crop image with the detected face
     face_encodings = face_recognition.face_encodings(frame_image)
     
@@ -227,6 +224,9 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
         # If we found the face, label the face with some useful information.
         if update:
             today_now = datetime.now()
+            print('encontrada')
+            print(known_face_metadata[best_index])
+            quit()
 
             if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
                 print('UPDATING')
@@ -243,6 +243,7 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id, **kwargs):
 
         else:  # If this is a new face, add it to our list of known faces
             program_action = get_action()
+
             if program_action == actions['read']:
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
@@ -460,8 +461,8 @@ def main(args):
     set_known_faces_db_name(known_faces_db_name)
     set_output_db_name(output_db_name)
 
-    # extract the database information and transfere it to the variables
-    total, encodings, metadata = biblio.read_pickle(output_db_name, False)
+    # try to read the information from the known faces DB
+    total, encodings, metadata = biblio.read_pickle(known_faces_db_name, False)
     set_known_faces_db(total, encodings, metadata)
 
     if total == 0:
@@ -472,6 +473,8 @@ def main(args):
             action = 'compare'
 
     set_action(actions[action])
+    print(encodings)
+    quit()
 
     # Create gstreamer elements */
     # Create Pipeline element that will form a connection of other elements

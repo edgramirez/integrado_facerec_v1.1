@@ -201,13 +201,12 @@ def encode_known_faces(image_path, output_file, new_file = True):
                 known_face_encodings.append(encoding[0])
             else:
                 encoding = face_recognition.face_encodings(rgb_small_frame)
-                #print(encoding)
-            #quit()
 
             if encoding:
                 name = os.path.splitext(file_name)[0]
                 names.append(name)
                 new_known_face_metadata = register_new_face(known_face_metadata, face_image, name)
+                known_face_encodings.append(encoding)
             else:
                 print('Ningun archivo de imagen contine rostros. {}'.format(image_path))
         else:
@@ -215,7 +214,6 @@ def encode_known_faces(image_path, output_file, new_file = True):
             face_location = face_recognition.face_locations(rgb_small_frame)
             #quit()
     if names:
-        print(name)
         write_to_pickle(known_face_encodings, new_known_face_metadata, output_file)
     else:
         print('Ningun archivo de imagen contine rostros: {}'.format(image_path))
