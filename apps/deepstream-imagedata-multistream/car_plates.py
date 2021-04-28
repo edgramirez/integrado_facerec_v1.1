@@ -77,14 +77,21 @@ pgie_classes_str= ["face", "Placa", "Marca","Modelo"]
 CURRENT_DIR = os.getcwd()
 
 
-global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_index
+global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_index, video_initial_time, fake_frame_number, found_faces
 known_faces_indexes = []
 known_face_metadata = []
 known_face_encodings = []
+found_faces = []
 actions = {'read': 1, 'find': 2, 'compare': 3}
+fake_frame_number = 0
 
 
 ### setters ###
+
+def set_video_initial_time():
+    global video_initial_time
+    video_initial_time =  datetime.now()
+
 
 def set_action(value):
     global action
@@ -113,6 +120,11 @@ def set_metadata(metadata):
     known_face_metadata = metadata
 
 ### getters ###
+
+def get_video_initial_time():
+    global video_initial_time
+    return video_initial_time
+
 
 def get_action():
     global action
@@ -193,68 +205,160 @@ def add_new_known_faces_indexes(new_value):
         known_faces_indexes.append(new_value)
 
 
-def update_known_faces_indexes(best_index, new_value):
+#def update_known_faces_indexes(best_index, new_value, append = False):
+#    global known_faces_indexes
+#    if append:
+#        known_faces_indexes.append(new_value)
+#    else:
+#        known_faces_indexes[best_index] =  new_value
+
+
+def update_known_faces_indexes(new_value, best_index = None):
     global known_faces_indexes
-    known_faces_indexes[best_index] =  new_value
+    if best_index:
+        known_faces_indexes[best_index] =  new_value
+    else:
+        # check value was not previously registered in list
+        if new_value not in known_faces_indexes:
+            known_faces_indexes.append(new_value)
 
 
-def clasify_to_known_and_unknown(frame_image, confidence, obj_id):
+def get_known_faces_indexes():
+    global known_faces_indexes
+    return known_faces_indexes
+
+
+def get_found_faces():
+    global found_faces
+    return found_faces
+
+
+def save_found_faces(metadata_of_found_faces):
+    global found_faces
+    found_faces = metadata_of_found_faces
+
+def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number):
     # try to encode the crop image with the detected face
     face_encodings = face_recognition.face_encodings(frame_image)
     
     update = False
+    best_index = None
+    program_action = get_action()
+
     if face_encodings:
         # get the current information of the database
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
+        known_faces_indexes = get_known_faces_indexes()
         #print(obj_id, known_faces_indexes, '........................')
-        #print('TAL VEZ') 
-        if obj_id in known_faces_indexes:
-            best_index = known_faces_indexes.index(obj_id)
-            update = True
-        else:
+        #quit()
+
+        if program_action == actions['find']:
             metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
 
-            if best_index:
-                #print('CAMBIO DE ID '.format(obj_id, known_faces_indexes, best_index)) 
-                update_known_faces_indexes(best_index, obj_id)
+            if metadata:
+                today_now = datetime.now()
+                name = metadata['name']
+                found_faces = get_found_faces()
+                metadata = known_face_metadata[best_index]
+
+                if name in known_faces_indexes:
+                    try:
+                        best_index = known_faces_indexes.index(name)
+                    except ValueError as e:
+                        best_index = None
+                    print('Daniel...', best_index)
+
+                    if best_index is not None:
+                        print(name, 'tal vez')
+                        if today_now - found_faces[best_index]['last_seen'] > timedelta(seconds=1):
+                            found_faces[best_index]['last_seen'] = today_now
+                            found_faces[best_index]['seen_count'] += 1
+                            found_faces[best_index]['seen_frames'] += 1
+                            print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image']))
+                            save_found_faces(found_faces)
+                            cv2.imwrite('/tmp/found_elements/found_multiple_' + str(name) + '_' + str(frame_number) + ".jpg", frame_image)
+                else:
+                    print('Sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image']))
+                    cv2.imwrite('/tmp/found_elements/found_' + str(name) + '_' + str(frame_number) + ".jpg", frame_image)
+                    found_faces.append({
+                        'name': name,
+                        'face_id': [obj_id],
+                        'first_seen': today_now,
+                        'first_seen_this_interaction': today_now,
+                        'face_image': frame_image,
+                        'confidence': confidence,
+                        'last_seen': today_now,
+                        'seen_count': 1,
+                        'seen_frames': 1
+                        })
+                    save_found_faces(found_faces)
+                    update_known_faces_indexes(name)
+        else:
+            if obj_id in known_faces_indexes:
+                best_index = known_faces_indexes.index(obj_id)
                 update = True
-                # TODO hay que reducir esta lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer  - mismo proceso de clenaup que 
-                # en otros programas
-
-        # If we found the face, label the face with some useful information.
-        if update:
-            today_now = datetime.now()
-            print('encontrada')
-            print(known_face_metadata[best_index])
-            quit()
-
-            if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
-                print('UPDATING')
-                known_face_metadata[best_index]['last_seen'] = today_now
-                known_face_metadata[best_index]['seen_count'] += 1
-                known_face_metadata[best_index]['seen_frames'] += 1
-
-                # replacing global metadata with new data
-                set_metadata(known_face_metadata)
-
-                return True
+                print('id in known_faces_indexes', obj_id, best_index, best_index) 
+                quit()
             else:
-                return False
-
-        else:  # If this is a new face, add it to our list of known faces
-            program_action = get_action()
-
-            if program_action == actions['read']:
+                try:
+                    metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+                except Exception as e:
+                    print('Original exception: ', str(e))
+                    print(face_encodings[0])
+                    print(known_face_encodings)
+                    quit()
+    
+                print('1_best_index', best_index, obj_id, update)
+                if best_index is not None:
+                    #print('CAMBIO DE ID '.format(obj_id, known_faces_indexes, best_index)) 
+                    #if program_action == actions['read']:
+                    update_known_faces_indexes(best_index, obj_id)
+                    #else:
+                    #    update_known_faces_indexes(best_index, obj_id, append = True)
+    
+                    update = True
+                    print('2_best_index', best_index, update)
+                    #print(face_encodings[0])
+                    #print(known_face_encodings)
+                    #quit()
+                    # TODO hay que reducir esta lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer  - mismo proceso de clenaup que 
+                    # en otros programas
+    
+            # If we found the face, label the face with some useful information.
+            if update:
+                today_now = datetime.now()
+    
+                #if program_action == actions['read']:
+                if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
+                    print('UPDATING')
+                    known_face_metadata[best_index]['last_seen'] = today_now
+                    known_face_metadata[best_index]['seen_count'] += 1
+                    known_face_metadata[best_index]['seen_frames'] += 1
+        
+                    # replacing global metadata with new data
+                    set_metadata(known_face_metadata)
+        
+                    return True
+                else:
+                    return False
+                #else:
+                #    print('encontrada')
+                #    current_time = today_now - get_video_initial_time()
+                #    print('Reporte:\nSujeto: {} encontrado a los {} del inicio del video. Salvando image en /tmp/found_elements/'.format(known_face_metadata[best_index]['name'], current_time))
+                #    cv2.imwrite('/tmp/found_elements/found_' + str(known_face_metadata[best_index]['name']) + ".jpg", frame_image)
+    
+            else:  # If this is a new face, add it to our list of known faces
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
-
+    
+                print('NUEVO')
                 # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
                 register_new_face_3(face_encodings[0], frame_image, face_label, confidence, obj_id)
-
+    
                 # TODO: remove this file writting cause is only for debug purposes
                 #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
                 cv2.imwrite(folder_name + "/stream_0/frame_" + str(total_visitors) + ".jpg", frame_image)
-
+    
                 return True
 
     return False
@@ -263,8 +367,8 @@ def clasify_to_known_and_unknown(frame_image, confidence, obj_id):
 # tiler_sink_pad_buffer_probe  will extract metadata received on tiler src pad
 # and update params for drawing rectangle, object information etc.
 def tiler_src_pad_buffer_probe(pad, info, u_data):
-    frame_number=0
-    num_rects=0
+    global fake_frame_number
+    num_rects = 0
     gst_buffer = info.get_buffer()
 
     if not gst_buffer:
@@ -290,6 +394,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
         except StopIteration:
             break
 
+        fake_frame_number += 1
         frame_number = frame_meta.frame_num
         l_obj=frame_meta.obj_meta_list
         num_rects = frame_meta.num_obj_meta
@@ -301,6 +406,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
         PGIE_CLASS_ID_MAKE:0,
         PGIE_CLASS_ID_MODEL:0
         }
+        #print('frame_number....', fake_frame_number)
         while l_obj is not None:
             try: 
                 # Casting l_obj.data to pyds.NvDsObjectMeta
@@ -317,7 +423,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
 
-                if clasify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id):
+                if classify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
                     save_image = True
             try: 
                 l_obj=l_obj.next
@@ -327,7 +433,6 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
         #print("Frame Number=", frame_number, "Number of Objects=",num_rects,"Face_count=",obj_counter[PGIE_CLASS_ID_FACE],"Person_count=",obj_counter[PGIE_CLASS_ID_PERSON])
         # Get frame rate through this probe
         fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
-
         saved_count["stream_"+str(frame_meta.pad_index)] += 1        
 
         try:
@@ -456,8 +561,8 @@ def main(args):
     Gst.init(None)
 
     # We load the database of known faces here if there is one, and we define the output DB name if we are only reading
-    known_faces_db_name = '/tmp/data/encoded_known_faces/knownFaces.dat'
-    output_db_name = '/tmp/data/video_encoded_faces/test_video_default.data'
+    known_faces_db_name = 'data/encoded_known_faces/knownFaces.dat'
+    output_db_name = 'data/video_encoded_faces/test_video_default.data'
     set_known_faces_db_name(known_faces_db_name)
     set_output_db_name(output_db_name)
 
@@ -469,12 +574,13 @@ def main(args):
         action = 'read'
     else:
         action = 'find'
+        set_video_initial_time()
         if com.file_exists_and_not_empty(output_db_name):
             action = 'compare'
 
     set_action(actions[action])
-    print(encodings)
-    quit()
+    #print(action)
+    #quit()
 
     # Create gstreamer elements */
     # Create Pipeline element that will form a connection of other elements

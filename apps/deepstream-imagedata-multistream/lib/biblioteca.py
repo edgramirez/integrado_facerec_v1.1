@@ -19,8 +19,6 @@ def write_to_pickle(known_face_encodings, known_face_metadata, data_file):
 
 
 def read_pickle(pickle_file, exception=True):
-    print('este read_pickle....')
-    # quit()
     try:
         with open(pickle_file, 'rb') as f:
             known_face_encodings, known_face_metadata = pickle.load(f)
@@ -137,7 +135,7 @@ def delete_pickle(data_file):
         raise Exception('unable to delete file: %s' % file_name)
 
 
-def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerance = 0.62):
+def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerance = 0.40):
     """
     See if this is a face we already have in our face list
     """
@@ -185,6 +183,8 @@ def encode_known_faces(image_path, output_file, new_file = True):
         # try to get the location of the face if there is one
         face_location = face_recognition.face_locations(rgb_small_frame)
 
+        print(file_name, face_location)
+
         # if got a face, loads the image, else ignores it
         if face_location:
             # Grab the image of the face from the current frame of video
@@ -195,18 +195,20 @@ def encode_known_faces(image_path, output_file, new_file = True):
             #cv2.imwrite("/tmp/e_1.jpg", face_image)
 
             encoding = face_recognition.face_encodings(face_image)
-            #print(encoding)
             # if the encoding is empty we assume the image was already treated and the we take only the original entry
             if encoding:
                 known_face_encodings.append(encoding[0])
             else:
                 encoding = face_recognition.face_encodings(rgb_small_frame)
+                known_face_encodings = encoding
 
             if encoding:
                 name = os.path.splitext(file_name)[0]
                 names.append(name)
                 new_known_face_metadata = register_new_face(known_face_metadata, face_image, name)
-                known_face_encodings.append(encoding)
+                print('Saving ', name)
+                #print(known_face_encodings, new_known_face_metadata)
+                #known_face_encodings.append(encoding)
             else:
                 print('Ningun archivo de imagen contine rostros. {}'.format(image_path))
         else:
@@ -214,6 +216,8 @@ def encode_known_faces(image_path, output_file, new_file = True):
             face_location = face_recognition.face_locations(rgb_small_frame)
             #quit()
     if names:
+        #print('en biblioteca: \n', known_face_encodings)
+        #quit()
         write_to_pickle(known_face_encodings, new_known_face_metadata, output_file)
     else:
         print('Ningun archivo de imagen contine rostros: {}'.format(image_path))

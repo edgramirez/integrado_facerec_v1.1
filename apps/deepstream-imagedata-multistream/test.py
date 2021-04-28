@@ -75,7 +75,6 @@ def read_pickle(pickle_file, exception=True):
     try:
         with open(pickle_file, 'rb') as f:
             known_face_encodings, known_face_metadata = pickle.load(f)
-            print('aqui', pickle_file, known_face_encodings, known_face_metadata)
             return len(known_face_metadata), known_face_encodings, known_face_metadata
     except OSError as e:
         if exception:
