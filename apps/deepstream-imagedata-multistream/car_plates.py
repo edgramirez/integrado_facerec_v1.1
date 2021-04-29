@@ -266,11 +266,11 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                         best_index = known_faces_indexes.index(name)
                     except ValueError as e:
                         best_index = None
-                    print('Daniel...', best_index)
+                    #print('Daniel...', best_index)
 
                     if best_index is not None:
-                        print(name, 'tal vez')
-                        if today_now - found_faces[best_index]['last_seen'] > timedelta(seconds=1):
+                        #print(name, 'tal vez')
+                        if today_now - found_faces[best_index]['last_seen'] > timedelta(seconds=5):
                             found_faces[best_index]['last_seen'] = today_now
                             found_faces[best_index]['seen_count'] += 1
                             found_faces[best_index]['seen_frames'] += 1

@@ -135,7 +135,7 @@ def delete_pickle(data_file):
         raise Exception('unable to delete file: %s' % file_name)
 
 
-def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerance = 0.40):
+def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerance = 0.55):
     """
     See if this is a face we already have in our face list
     """
