@@ -215,8 +215,8 @@ def add_new_known_faces_indexes(new_value):
 
 def update_known_faces_indexes(new_value, best_index = None):
     global known_faces_indexes
-    if best_index:
-        known_faces_indexes[best_index] =  new_value
+    if best_index is not None:
+        known_faces_indexes[best_index] = new_value
     else:
         # check value was not previously registered in list
         if new_value not in known_faces_indexes:
@@ -249,8 +249,6 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
         # get the current information of the database
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
         known_faces_indexes = get_known_faces_indexes()
-        #print(obj_id, known_faces_indexes, '........................')
-        #quit()
 
         if program_action == actions['find']:
             metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
@@ -266,10 +264,8 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                         best_index = known_faces_indexes.index(name)
                     except ValueError as e:
                         best_index = None
-                    #print('Daniel...', best_index)
 
                     if best_index is not None:
-                        #print(name, 'tal vez')
                         if today_now - found_faces[best_index]['last_seen'] > timedelta(seconds=5):
                             found_faces[best_index]['last_seen'] = today_now
                             found_faces[best_index]['seen_count'] += 1
@@ -278,7 +274,8 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                             save_found_faces(found_faces)
                             cv2.imwrite('/tmp/found_elements/found_multiple_' + str(name) + '_' + str(frame_number) + ".jpg", frame_image)
                 else:
-                    print('Sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image']))
+                    #print('Sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image']))
+                    print('Sujeto {}, encontrado en frame {}'.format(name, frame_number))
                     cv2.imwrite('/tmp/found_elements/found_' + str(name) + '_' + str(frame_number) + ".jpg", frame_image)
                     found_faces.append({
                         'name': name,
@@ -294,42 +291,35 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                     save_found_faces(found_faces)
                     update_known_faces_indexes(name)
         else:
+            print(obj_id, known_faces_indexes)
+
             if obj_id in known_faces_indexes:
                 best_index = known_faces_indexes.index(obj_id)
                 update = True
-                print('id in known_faces_indexes', obj_id, best_index, best_index) 
-                quit()
             else:
-                try:
-                    metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
-                except Exception as e:
-                    print('Original exception: ', str(e))
-                    print(face_encodings[0])
-                    print(known_face_encodings)
-                    quit()
+                metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
     
                 print('1_best_index', best_index, obj_id, update)
                 if best_index is not None:
-                    #print('CAMBIO DE ID '.format(obj_id, known_faces_indexes, best_index)) 
-                    #if program_action == actions['read']:
-                    update_known_faces_indexes(best_index, obj_id)
-                    #else:
-                    #    update_known_faces_indexes(best_index, obj_id, append = True)
-    
+                    print('CAMBIO DE ID: {}, {}, {}'.format(obj_id, known_faces_indexes, best_index)) 
+                    update_known_faces_indexes(obj_id, best_index)
                     update = True
                     print('2_best_index', best_index, update)
-                    #print(face_encodings[0])
-                    #print(known_face_encodings)
-                    #quit()
-                    # TODO hay que reducir esta lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer  - mismo proceso de clenaup que 
-                    # en otros programas
+                    # TODO hay que reducir la lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer - mismo proceso de clenaup
     
             # If we found the face, label the face with some useful information.
             if update:
                 today_now = datetime.now()
     
-                #if program_action == actions['read']:
-                if today_now - known_face_metadata[best_index]["last_seen"] < timedelta(seconds=1) and known_face_metadata[best_index]["seen_frames"] > 1:
+                try:
+                    known_face_metadata[best_index]['last_seen']
+                    known_face_metadata[best_index]['seen_frames']
+                except Exception as e:
+                    print(str(e))
+                    print('best_index:  ', best_index, ' tamano known_face_metadata: ', len(known_face_metadata))
+                    quit()
+
+                if today_now - known_face_metadata[best_index]['last_seen'] < timedelta(seconds=1) and known_face_metadata[best_index]['seen_frames'] > 1:
                     print('UPDATING')
                     known_face_metadata[best_index]['last_seen'] = today_now
                     known_face_metadata[best_index]['seen_count'] += 1
@@ -417,12 +407,13 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
             # Periodically check for objects with borderline confidence value that may be false positive detections.
             # If such detections are found, annoate the frame with bboxes and confidence value.
             # Save the annotated frame to file.
-            if obj_meta.class_id == 0 and obj_meta.confidence > 0.78:
+            if obj_meta.class_id == 0 and obj_meta.confidence > 0.70:
                 # Getting Image data using nvbufsurface
                 # the input should be address of buffer and batch_id
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
 
+                cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
                 if classify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
                     save_image = True
             try: 
