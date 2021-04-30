@@ -168,45 +168,53 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
     return None, None
 
 
+
+def encode_image_face(face_obj, name, known_face_encodings, known_face_metadata):
+    # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
+    rgb_small_frame = face_obj[:, :, ::-1]
+
+    # try to get the location of the face if there is one
+    face_location = face_recognition.face_locations(rgb_small_frame)
+
+    # if got a face, loads the image, else ignores it
+    if face_location:
+        # Grab the image of the face from the current frame of video
+        top, right, bottom, left = face_location[0]
+        face_image = rgb_small_frame[top:bottom, left:right]
+        face_image = cv2.resize(face_image, (150, 150))
+        encoding = face_recognition.face_encodings(face_image)
+
+        # if the encoding is empty we assume the image was already treated and the we take only the original entry
+        if len(encoding) == 0:
+            encoding = face_recognition.face_encodings(rgb_small_frame)
+
+        if encoding:
+            known_face_encodings.append(encoding[0])
+            known_face_metadata = register_new_face(known_face_metadata, face_image, name)
+
+            print('adding ', name, len(known_face_encodings), len(known_face_metadata))
+            return known_face_encodings, known_face_metadata
+        else:
+            print('Ningun archivo de imagen contiene rostros. {}'.format(image_path))
+    return known_face_encodings, known_face_metadata
+
+
 def encode_known_faces(image_path, output_file, new_file = True):
     files, root = com.read_images_in_dir(image_path)
-    names = []
-    known_face_encodings = []
     known_face_metadata = []
+    known_face_encodings = []
 
+    write_to_file = False
     for file_name in files:
         # load the image into face_recognition library
         face_obj = face_recognition.load_image_file(root + '/' + file_name)
+        name = os.path.splitext(file_name)[0]
+        known_face_encodings, known_face_metadata = encode_image_face(face_obj, name, known_face_encodings, known_face_metadata)
+        if known_face_encodings:
+            write_to_file = True
 
-        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-        rgb_small_frame = face_obj[:, :, ::-1]
-
-        # try to get the location of the face if there is one
-        face_location = face_recognition.face_locations(rgb_small_frame)
-
-        # if got a face, loads the image, else ignores it
-        if face_location:
-            # Grab the image of the face from the current frame of video
-            top, right, bottom, left = face_location[0]
-            face_image = rgb_small_frame[top:bottom, left:right]
-            face_image = cv2.resize(face_image, (150, 150))
-            encoding = face_recognition.face_encodings(face_image)
-
-            # if the encoding is empty we assume the image was already treated and the we take only the original entry
-            if encoding:
-                known_face_encodings.append(encoding[0])
-            else:
-                encoding = face_recognition.face_encodings(rgb_small_frame)
-                known_face_encodings = encoding
-
-            if encoding:
-                name = os.path.splitext(file_name)[0]
-                names.append(name)
-                new_known_face_metadata = register_new_face(known_face_metadata, face_image, name)
-            else:
-                print('Ningun archivo de imagen contiene rostros. {}'.format(image_path))
-    if names:
-        write_to_pickle(known_face_encodings, new_known_face_metadata, output_file)
+    if write_to_file:
+        write_to_pickle(known_face_encodings, known_face_metadata, output_file)
     else:
         print('Ningun archivo de imagen contine rostros: {}'.format(image_path))
 
