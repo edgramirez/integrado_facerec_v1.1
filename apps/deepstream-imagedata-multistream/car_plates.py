@@ -291,6 +291,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
         else:
             print(obj_id, known_faces_indexes)
 
+            difference = None
             if obj_id in known_faces_indexes:
                 best_index = known_faces_indexes.index(obj_id)
                 update = True
@@ -308,19 +309,17 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
             # If we found the face, label the face with some useful information.
             if update:
                 today_now = datetime.now()
-    
-                #known_face_metadata[best_index]['last_seen']
-                #known_face_metadata[best_index]['seen_frames']
-
                 if today_now - known_face_metadata[best_index]['last_seen'] < timedelta(seconds=1) and known_face_metadata[best_index]['seen_frames'] > 1:
                     print('UPDATING')
                     known_face_metadata[best_index]['last_seen'] = today_now
                     known_face_metadata[best_index]['seen_count'] += 1
                     known_face_metadata[best_index]['seen_frames'] += 1
 
-                    if known_face_metadata[best_index]['confidence'] < confidence: 
+                    if known_face_metadata[best_index]['confidence'][-1] < confidence:
                         known_face_metadata[best_index]['face_image'].append(frame_image)
                         known_face_metadata[best_index]['confidence'].append(confidence)
+                    if difference is no None:
+                        known_face_metadata[best_index]['confidence'][-1] = difference
         
                     # replacing global metadata with new data
                     set_metadata(known_face_metadata)
@@ -334,7 +333,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
     
                 print('NUEVO')
                 # Add new metadata/encoding to the known_faces_metadata and known_faces_encodings
-                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, difference, obj_id)
+                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, None, obj_id)
     
                 # TODO: remove this file writting cause is only for debug purposes
                 #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
