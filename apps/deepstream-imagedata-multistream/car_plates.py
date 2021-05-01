@@ -169,7 +169,7 @@ def add_new_face_metadata(face_image, name, confidence, difference, face_id):
 
     known_face_metadata.append({
         'name': name,
-        'face_id': face_id,
+        'face_id': [face_id],
         'first_seen': today_now,
         'first_seen_this_interaction': today_now,
         'face_image': [face_image],
@@ -204,14 +204,6 @@ def add_new_known_faces_indexes(new_value):
         known_faces_indexes.append(new_value)
 
 
-#def update_known_faces_indexes(best_index, new_value, append = False):
-#    global known_faces_indexes
-#    if append:
-#        known_faces_indexes.append(new_value)
-#    else:
-#        known_faces_indexes[best_index] =  new_value
-
-
 def update_known_faces_indexes(new_value, best_index = None):
     global known_faces_indexes
     if best_index is not None:
@@ -220,6 +212,9 @@ def update_known_faces_indexes(new_value, best_index = None):
         # check value was not previously registered in list
         if new_value not in known_faces_indexes:
             known_faces_indexes.append(new_value)
+        else:
+            print('combinacion no valida, no puede ser nuevo si ya esta en la lista: {} / {}'.format(new_value, known_faces_indexes))
+            quit()
 
 
 def get_known_faces_indexes():
@@ -302,6 +297,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                 if best_index is not None:
                     print('CAMBIO DE ID: {}, {}, {}'.format(obj_id, known_faces_indexes, best_index)) 
                     update_known_faces_indexes(obj_id, best_index)
+                    known_face_metadata[best_index]['face_id'].append(obj_id)
                     update = True
                     print('2_best_index', best_index, update)
                     # TODO hay que reducir la lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer - mismo proceso de clenaup
@@ -318,8 +314,9 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                     if known_face_metadata[best_index]['confidence'][-1] < confidence:
                         known_face_metadata[best_index]['face_image'].append(frame_image)
                         known_face_metadata[best_index]['confidence'].append(confidence)
-                    if difference is no None:
-                        known_face_metadata[best_index]['confidence'][-1] = difference
+
+                        if difference is no None:
+                            known_face_metadata[best_index]['difference'].append(difference)
         
                     # replacing global metadata with new data
                     set_metadata(known_face_metadata)

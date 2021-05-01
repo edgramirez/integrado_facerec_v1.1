@@ -135,5 +135,6 @@ for m in meta:
     i = 0 
     for img in imgs:
         cv2.imwrite("/tmp/stream_99/frame_" + meta[i]['name'] + '_' + str(i) + ".jpg", img)
+        print(meta[i]['name'],' confidence:', meta[i]['confidence'], ' difference ', meta[i]['difference'] )
         i += 1
 
