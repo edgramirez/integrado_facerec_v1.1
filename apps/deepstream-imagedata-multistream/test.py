@@ -124,10 +124,16 @@ t, datos, meta = read_pickle(test)
 numero = len(datos)
 print('numero:',numero,'\ndatos:\n', datos)
 
+#i = 0 
+#for m in meta:
+#    img = meta[i]['face_image']
+#    cv2.imwrite("/tmp/stream_9/frame_" + str(i) + ".jpg", img)
+#    i += 1
 
-i = 0 
 for m in meta:
-    img = meta[i]['face_image']
-    cv2.imwrite("/tmp/stream_9/frame_" + str(i) + ".jpg", img)
-    i += 1
+    imgs = meta[i]['face_image']
+    i = 0 
+    for img in imgs:
+        cv2.imwrite("/tmp/stream_99/frame_" + meta[i]['name'] + '_' + str(i) + ".jpg", img)
+        i += 1
 
