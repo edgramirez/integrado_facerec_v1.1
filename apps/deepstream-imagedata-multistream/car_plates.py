@@ -159,7 +159,7 @@ def crop_and_get_faces_locations(n_frame, obj_meta, confidence):
     return crop_image
 
 
-def add_new_face_metadata(face_image, name, confidence, face_id):
+def add_new_face_metadata(face_image, name, confidence, difference, face_id):
     """
     Add a new person to our list of known faces
     """
@@ -174,6 +174,7 @@ def add_new_face_metadata(face_image, name, confidence, face_id):
         'first_seen_this_interaction': today_now,
         'face_image': [face_image],
         'confidence': [confidence],
+        'difference': [difference],
         'last_seen': today_now,
         'seen_count': 1,
         'seen_frames': 1
@@ -187,9 +188,9 @@ def update_faces_encodings(face_encoding):
     known_face_encodings.append(face_encoding)
 
 
-def register_new_face_3(face_encoding, image, name, confidence, face_id):
+def register_new_face_3(face_encoding, image, name, confidence, difference, face_id):
     # Add the new face metadata to our known faces metadata
-    add_new_face_metadata(image, name, confidence, face_id)
+    add_new_face_metadata(image, name, confidence, difference, face_id)
     # Add the face encoding to the list of known faces encodings
     update_faces_encodings(face_encoding)
     # Add new element to the list - this list maps and mirrows the face_ids for the meta
@@ -248,7 +249,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
         known_faces_indexes = get_known_faces_indexes()
 
         if program_action == actions['find']:
-            metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+            metadata, best_index, difference = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
 
             if metadata:
                 today_now = datetime.now()
@@ -280,6 +281,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                         'first_seen_this_interaction': today_now,
                         'face_image': frame_image,
                         'confidence': confidence,
+                        'difference': difference,
                         'last_seen': today_now,
                         'seen_count': 1,
                         'seen_frames': 1
@@ -293,7 +295,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                 best_index = known_faces_indexes.index(obj_id)
                 update = True
             else:
-                metadata, best_index = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
+                metadata, best_index, difference = biblio.lookup_known_face(face_encodings[0], known_face_encodings, known_face_metadata)
     
                 print('1_best_index', best_index, obj_id, update)
                 if best_index is not None:
@@ -332,7 +334,7 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
     
                 print('NUEVO')
                 # Add new metadata/encoding to the known_faces_metadata and known_faces_encodings
-                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, obj_id)
+                register_new_face_3(face_encodings[0], frame_image, face_label, confidence, difference, obj_id)
     
                 # TODO: remove this file writting cause is only for debug purposes
                 #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)

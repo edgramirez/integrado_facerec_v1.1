@@ -135,7 +135,7 @@ def delete_pickle(data_file):
         raise Exception('unable to delete file: %s' % file_name)
 
 
-def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerance = 0.50):
+def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, difference = 0.50):
     """
     - See if this is a face we already have in our face list
     - Tolerance is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means this 2 faces are completly different
@@ -155,11 +155,11 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
             # Get the known face that had the lowest distance (i.e. most similar) from the unknown face.
             best_match_index = np.argmin(face_distances)
     
-            if face_distances[best_match_index] < tolerance:
+            if face_distances[best_match_index] < difference:
                 only_true_known_face_metadata = [ known_face_metadata[ind] for ind in indexes ]
-                return known_face_metadata[best_match_index], indexes[best_match_index]
+                return known_face_metadata[best_match_index], indexes[best_match_index], difference
 
-    return None, None
+    return None, None, None
 
 
 def encode_image_face(face_obj, name, known_face_encodings, known_face_metadata):
