@@ -137,9 +137,8 @@ def delete_pickle(data_file):
 
 def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerance = 0.50):
     """
-    See if this is a face we already have in our face list
-
-    tolerance is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means this 2 faces are completly different
+    - See if this is a face we already have in our face list
+    - Tolerance is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means this 2 faces are completly different
     """
     # If our known face list is empty, just return nothing since we can't possibly have seen this face.
     if known_face_encodings:
@@ -149,7 +148,7 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
         if True in matches:
             # If there is a match, then get the best distances only on the index with "True" to ignore the process on those that are False
             indexes = [ index for index, item in enumerate(matches) if item]
-            #print('indexes:', indexes)
+
             only_true_known_face_encodings = [ known_face_encodings[ind] for ind in indexes ]
             face_distances = face_recognition.face_distance(only_true_known_face_encodings, face_encoding)
 
@@ -158,15 +157,9 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
     
             if face_distances[best_match_index] < tolerance:
                 only_true_known_face_metadata = [ known_face_metadata[ind] for ind in indexes ]
-                #print('lookup best_match_index: {} and indexes: {} , real meta index {}'.format(best_match_index,indexes, indexes[best_match_index]))
-                #print('lookup best_match_metadata_content: ', known_face_metadata[best_match_index])
-                #print('lookup only_true_known_face_metadata: ', only_true_known_face_metadata[best_match_index])
-                #quit()
-                #return known_face_metadata[best_match_index], best_match_index
                 return known_face_metadata[best_match_index], indexes[best_match_index]
 
     return None, None
-
 
 
 def encode_image_face(face_obj, name, known_face_encodings, known_face_metadata):
@@ -184,15 +177,13 @@ def encode_image_face(face_obj, name, known_face_encodings, known_face_metadata)
         face_image = cv2.resize(face_image, (150, 150))
         encoding = face_recognition.face_encodings(face_image)
 
-        # if the encoding is empty we assume the image was already treated and the we take only the original entry
+        # if encoding empty we assume the image was already treated 
         if len(encoding) == 0:
             encoding = face_recognition.face_encodings(rgb_small_frame)
 
         if encoding:
             known_face_encodings.append(encoding[0])
             known_face_metadata = register_new_face(known_face_metadata, face_image, name)
-
-            print('adding ', name, len(known_face_encodings), len(known_face_metadata))
             return known_face_encodings, known_face_metadata
         else:
             print('Ningun archivo de imagen contiene rostros. {}'.format(image_path))
@@ -212,7 +203,6 @@ def encode_known_faces(image_path, output_file, new_file = True):
         known_face_encodings, known_face_metadata = encode_image_face(face_obj, name, known_face_encodings, known_face_metadata)
         if known_face_encodings:
             write_to_file = True
-
     if write_to_file:
         write_to_pickle(known_face_encodings, known_face_metadata, output_file)
     else:

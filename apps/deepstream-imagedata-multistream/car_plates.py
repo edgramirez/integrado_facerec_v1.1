@@ -172,8 +172,8 @@ def add_new_face_metadata(face_image, name, confidence, face_id):
         'face_id': face_id,
         'first_seen': today_now,
         'first_seen_this_interaction': today_now,
-        'face_image': face_image,
-        'confidence': confidence,
+        'face_image': [face_image],
+        'confidence': [confidence],
         'last_seen': today_now,
         'seen_count': 1,
         'seen_frames': 1
@@ -184,9 +184,7 @@ def add_new_face_metadata(face_image, name, confidence, face_id):
 
 def update_faces_encodings(face_encoding):
     global known_face_encodings
-    #print('VAR encodings antes de agregar nuevo {}'.format(len(known_face_encodings)))
     known_face_encodings.append(face_encoding)
-    #print('VAR encodings despues de agregar nuevo {}'.format(len(known_face_encodings)))
 
 
 def register_new_face_3(face_encoding, image, name, confidence, face_id):
@@ -240,13 +238,12 @@ def save_found_faces(metadata_of_found_faces):
 def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number):
     # try to encode the crop image with the detected face
     face_encodings = face_recognition.face_encodings(frame_image)
-    
     update = False
     best_index = None
     program_action = get_action()
 
     if face_encodings:
-        # get the current information of the database
+        # get the current information from the database - known faces
         total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
         known_faces_indexes = get_known_faces_indexes()
 
@@ -270,11 +267,10 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                             found_faces[best_index]['last_seen'] = today_now
                             found_faces[best_index]['seen_count'] += 1
                             found_faces[best_index]['seen_frames'] += 1
-                            print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image']))
+                            print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image'][-1]))
                             save_found_faces(found_faces)
                             cv2.imwrite('/tmp/found_elements/found_multiple_' + str(name) + '_' + str(frame_number) + ".jpg", frame_image)
                 else:
-                    #print('Sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image']))
                     print('Sujeto {}, encontrado en frame {}'.format(name, frame_number))
                     cv2.imwrite('/tmp/found_elements/found_' + str(name) + '_' + str(frame_number) + ".jpg", frame_image)
                     found_faces.append({
@@ -311,19 +307,18 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
             if update:
                 today_now = datetime.now()
     
-                try:
-                    known_face_metadata[best_index]['last_seen']
-                    known_face_metadata[best_index]['seen_frames']
-                except Exception as e:
-                    print(str(e))
-                    print('best_index:  ', best_index, ' tamano known_face_metadata: ', len(known_face_metadata))
-                    quit()
+                #known_face_metadata[best_index]['last_seen']
+                #known_face_metadata[best_index]['seen_frames']
 
                 if today_now - known_face_metadata[best_index]['last_seen'] < timedelta(seconds=1) and known_face_metadata[best_index]['seen_frames'] > 1:
                     print('UPDATING')
                     known_face_metadata[best_index]['last_seen'] = today_now
                     known_face_metadata[best_index]['seen_count'] += 1
                     known_face_metadata[best_index]['seen_frames'] += 1
+
+                    if known_face_metadata[best_index]['confidence'] < confidence: 
+                        known_face_metadata[best_index]['face_image'].append(frame_image)
+                        known_face_metadata[best_index]['confidence'].append(confidence)
         
                     # replacing global metadata with new data
                     set_metadata(known_face_metadata)
@@ -331,18 +326,12 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
                     return True
                 else:
                     return False
-                #else:
-                #    print('encontrada')
-                #    current_time = today_now - get_video_initial_time()
-                #    print('Reporte:\nSujeto: {} encontrado a los {} del inicio del video. Salvando image en /tmp/found_elements/'.format(known_face_metadata[best_index]['name'], current_time))
-                #    cv2.imwrite('/tmp/found_elements/found_' + str(known_face_metadata[best_index]['name']) + ".jpg", frame_image)
-    
             else:  # If this is a new face, add it to our list of known faces
                 face_label = 'visitor_' + str(total_visitors)
                 total_visitors += 1
     
                 print('NUEVO')
-                # Add new metadata and encoding to the known_faces_metadata and known_faces_encodings
+                # Add new metadata/encoding to the known_faces_metadata and known_faces_encodings
                 register_new_face_3(face_encodings[0], frame_image, face_label, confidence, obj_id)
     
                 # TODO: remove this file writting cause is only for debug purposes
@@ -412,8 +401,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 # the input should be address of buffer and batch_id
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
-
-                cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
+                #cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
                 if classify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
                     save_image = True
             try: 
