@@ -306,16 +306,18 @@ def classify_to_known_and_unknown(frame_image, confidence, obj_id, frame_number)
             if update:
                 today_now = datetime.now()
                 if today_now - known_face_metadata[best_index]['last_seen'] < timedelta(seconds=1) and known_face_metadata[best_index]['seen_frames'] > 1:
-                    print('UPDATING')
+                    print('UPDATING1', known_face_metadata[best_index]['confidence'][-1], confidence)
                     known_face_metadata[best_index]['last_seen'] = today_now
                     known_face_metadata[best_index]['seen_count'] += 1
                     known_face_metadata[best_index]['seen_frames'] += 1
 
                     if known_face_metadata[best_index]['confidence'][-1] < confidence:
+                        print('UPDATING2')
                         known_face_metadata[best_index]['face_image'].append(frame_image)
                         known_face_metadata[best_index]['confidence'].append(confidence)
 
-                        if difference is no None:
+                        if difference is not None:
+                            print('UPDATING3')
                             known_face_metadata[best_index]['difference'].append(difference)
         
                     # replacing global metadata with new data
@@ -399,7 +401,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 # the input should be address of buffer and batch_id
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
-                #cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
+                cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
                 if classify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
                     save_image = True
             try: 
@@ -538,8 +540,9 @@ def main(args):
     Gst.init(None)
 
     # We load the database of known faces here if there is one, and we define the output DB name if we are only reading
-    known_faces_db_name = 'data/encoded_known_faces/knownFaces.dat'
-    output_db_name = 'data/video_encoded_faces/test_video_default.data'
+    pwd = os.getcwd()
+    known_faces_db_name = pwd + '/data/encoded_known_faces/knownFaces.dat'
+    output_db_name = pwd + '/data/video_encoded_faces/test_video_default.data'
     set_known_faces_db_name(known_faces_db_name)
     set_output_db_name(output_db_name)
 

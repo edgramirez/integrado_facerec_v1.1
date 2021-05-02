@@ -83,58 +83,32 @@ def read_pickle(pickle_file, exception=True):
             return 0, [], []
 
 
+pwd = os.getcwd()
 metadata_file = 'data/video_encoded_faces/test_video_default_metadata.dat'
 encodings_file = 'data/video_encoded_faces/test_video_default_encodings.dat'
-test='/tmp/data/video_encoded_faces/test_video_default.data'
-test='data/encoded_known_faces/knownFaces.dat'
-'''
-images_file = '/tmp/images.data'
-
-if file_exists(metadata_file):
-    delete_pickle(metadata_file)
-if file_exists(images_file):
-    delete_pickle(images_file)
-if file_exists(encodings_file):
-    delete_pickle(encodings_file)
-
-known_face_encodings = [1,1,1,1,1,1,1,1]
-known_face_metadata = [1,1,1,1,1,1,1,1]
-known_face_image = [1,1,1,1,1,1,1,1]
-write_to_pickle(known_face_encodings, metadata_file)
-write_to_pickle(known_face_metadata, images_file)
-write_to_pickle(known_face_image, encodings_file)
-
-known_face_encodings = [2,2,2,2,2,2,2,2]
-known_face_metadata = [2,2,2,2,2,2,2,2]
-known_face_image = [2,2,2,2,2,2,2,2]
-write_to_pickle(known_face_encodings, metadata_file)
-write_to_pickle(known_face_metadata, images_file)
-write_to_pickle(known_face_image, encodings_file)
-
-known_face_encodings = [3,3,3,3,3,3,3,3]
-known_face_metadata = [3,3,3,3,3,3,3,3]
-known_face_image = [3,3,3,3,3,3,3,3]
-write_to_pickle(known_face_encodings, metadata_file)
-write_to_pickle(known_face_metadata, images_file)
-write_to_pickle(known_face_image, encodings_file)
-'''
+test = pwd + '/data/video_encoded_faces/test_video_default.data'
+test = '/tmp/read_from_directory/read_from_directory.dat'
 
 t, datos, meta = read_pickle(test)
 #datos = read_pickle(encodings_file)
 numero = len(datos)
-print('numero:',numero,'\ndatos:\n', datos)
-
-#i = 0 
-#for m in meta:
-#    img = meta[i]['face_image']
-#    cv2.imwrite("/tmp/stream_9/frame_" + str(i) + ".jpg", img)
-#    i += 1
+#print('numero:',numero,'\ndatos:\n', datos, 'meta', meta)
+#print('numero:',numero,'\nmetadatos:\n', meta)
+print('numero:',numero)
+#print('meta 1:', meta[0]['face_image'])
+#quit()
+ 
+i = 0
+for m in meta:
+    img = m['face_image']
+    cv2.imwrite("/tmp/stream_9/frame_" + str(i) + ".jpg", img)
+    i += 1
+quit()
 
 for m in meta:
-    imgs = meta[i]['face_image']
     i = 0 
-    for img in imgs:
-        cv2.imwrite("/tmp/stream_99/frame_" + meta[i]['name'] + '_' + str(i) + ".jpg", img)
-        print(meta[i]['name'],' confidence:', meta[i]['confidence'], ' difference ', meta[i]['difference'] )
+    for img in m['face_image']:
+        cv2.imwrite("/tmp/stream_99/frame_" + m['name'] + '_' + str(i) + ".jpg", img)
+        print(m['name'],' confidence:', m['confidence'], ' difference ', m['difference'] )
         i += 1
 

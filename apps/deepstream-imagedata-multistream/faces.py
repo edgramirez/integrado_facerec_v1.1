@@ -14,6 +14,7 @@ if sys.argv[1] == 'loadFaces':
         known_faces = 'data/load'
         known_faces = '/tmp/found_elements'
         data_file = 'data/encoded_known_faces/knownFaces.dat'
+        data_file = '/tmp/read_from_directory/read_from_directory.dat'
     elif param_length == 4 and sys.argv[3] == 'output':
         known_faces = sys.argv[2]
         pickle_file = sys.argv[4]
