@@ -22,7 +22,8 @@ if sys.argv[1] == 'loadFaces':
         com.log_error(msg)
 
     import lib.biblioteca as biblio 
-    biblio.encode_known_faces(known_faces, data_file)
+    #biblio.encode_known_faces(known_faces, data_file)
+    biblio.encode_known_faces_from_images_in_dir(known_faces, data_file)
 elif sys.argv[1] == 'appendTo':
     if param_length == 2:
         known_faces = 'data/load'
@@ -34,7 +35,8 @@ elif sys.argv[1] == 'appendTo':
         com.log_error(msg)
 
     import lib.biblioteca as biblio 
-    biblio.encode_known_faces(known_faces, data_file, False)
+    #biblio.encode_known_faces(known_faces, data_file, False)
+    biblio.encode_known_faces_from_images_in_dir(known_faces, data_file, False)
 elif sys.argv[1] == 'findImg':
     if param_length == 2:
         image_dir = 'data/find'
