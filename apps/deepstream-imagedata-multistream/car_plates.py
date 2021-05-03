@@ -401,9 +401,17 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 # the input should be address of buffer and batch_id
                 n_frame = pyds.get_nvds_buf_surface(hash(gst_buffer), frame_meta.batch_id)
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
-                cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
-                if classify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
-                    save_image = True
+
+                if frame_image.size > 0:
+                    try:
+                        cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
+                    except Exception as e:
+                        if frame_image.size == 0:
+                            print('ooo')
+                        print('------------')
+                        quit()
+                #if classify_to_known_and_unknown(frame_image, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
+                #    save_image = True
             try: 
                 l_obj=l_obj.next
             except StopIteration:
