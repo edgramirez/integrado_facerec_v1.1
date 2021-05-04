@@ -9,7 +9,7 @@ rm -f /tmp/found_elements/*
 #ls -lartc data/encoded_known_faces/knownFaces.dat
 
 #rm -rf /tmp/stream_0; python3 car_plates.py file:///tmp/obama_biden.mp4    /tmp/stream_0
-rm -rf /tmp/stream_0; python3 car_plates.py file:///tmp/amlo.mp4           /tmp/stream_0
+rm -rf /tmp/stream_0; python3 face_detection.py file:///tmp/amlo.mp4           /tmp/stream_0
 #rm -rf /tmp/stream_0; python3 car_plates.py file:///tmp/HD_CCTV_Camera.mp4 /tmp/stream_0
 
 exit 111
