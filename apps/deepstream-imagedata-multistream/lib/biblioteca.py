@@ -1,6 +1,7 @@
 import pickle
 import os
 import cv2
+import time
 from os import walk
 import face_recognition
 import numpy as np
@@ -119,24 +120,36 @@ def display_recent_visitors_face(known_face_metadata, frame):
             cv2.putText(frame, visit_label, (x_position + 10, 170), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
 
 
-def new_face_metadata(face_image, name):
+def new_face_metadata(face_image, source_info):
     """
     Add a new person to our list of known faces
     """
-    # Add a matching dictionary entry to our metadata list.
-    # We can use this to keep track of how many times a person has visited, when we last saw them, etc.
+    camera_id = source_info.get('camera_id', None)
+    confidence = source_info.get('confidence', None)
+    #source_type = source_info.get('source_type', None)
+
+    if source_info['name'] is None:
+        #source_info['name'] = source_info['camera_id'] + '_' + source_info['source_type'] + '_' + str(get_timestamp())
+        source_info['name'] = source_info['camera_id'] + '_' + str(get_timestamp())
+    else:
+        if source_info.get('print_name', False):
+            print('Saving face: {}'.format(source_info['name']))
+
     today_now = datetime.now()
+
     return {
-        'name': name,
+        'name': source_info['name'],
         'face_id': 0,
+        'camera_id': camera_id,
         'first_seen': today_now,
         'first_seen_this_interaction': today_now,
         'face_image': face_image,
-        'confidence': 0,
+        'confidence': confidence,
         'last_seen': today_now,
         'seen_count': 1,
         'seen_frames': 1
     }
+    #    'source_type': source_type,
 
 
 def delete_pickle(data_file):
@@ -145,10 +158,14 @@ def delete_pickle(data_file):
         raise Exception('unable to delete file: %s' % file_name)
 
 
+def get_timestamp():
+    return int(time.time() * 1000)
+
+
 def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, difference = 0.43):
     '''
-    - See if this is a face we already have in our face list
-    - Tolerance is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means this 2 faces are completly different
+    - See if this face was already stored in our list of faces
+    - difference: is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means are completly different
     '''
     # If our known face list is empty, just return nothing since we can't possibly have seen this face.
     if known_face_encodings:
@@ -156,40 +173,50 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
 
         if True in matches:
-            # If there is a match, then get the best distances only on the index with "True" 
-            # to ignore the process on those that are False
+            # si hay un True en la lista entonces hay un match, get the indexes of these matches
             indexes = [ index for index, item in enumerate(matches) if item]
 
+            # crear una lista dinamica con los indices que hicieron match
             only_true_known_face_encodings = [ known_face_encodings[ind] for ind in indexes ]
+
+            # obtener la distancia de los elementos en la nueva lista contra el encoding de la nueva imagen
             face_distances = face_recognition.face_distance(only_true_known_face_encodings, face_encoding)
 
-            # Get the known face that had the lowest distance (i.e. most similar) from the unknown face.
+            # Get the match with the loggest distance to the image.
             best_match_index = np.argmin(face_distances)
-            best_match_encoding = only_true_known_face_encodings[best_match_index]
 
-            # si la distancia en muy chica es la misma persona
+            # La distancia de este elemento con la menor distancia tiene que ser menor a nuestro parametro de aceptacion
             if face_distances[best_match_index] < difference:
-                #only_true_known_face_metadata = [ known_face_metadata[ind] for ind in indexes ]
-                #return only_true_known_face_metadata[best_match_index], indexes[best_match_index], face_distances[best_match_index]
-                # Que regreso meta que hace match, el indice real en esa lista, la distancia que hay entre la imagen y la imagen almacenada
-                return known_face_encodings[indexes[best_match_index]], indexes[best_match_index], face_distances[best_match_index]
+                # Values returned:  
+                #        meta que hace match,                     el indice real de la lista global, distancia a la imagen analizada
+                return   known_face_encodings[indexes[best_match_index]], indexes[best_match_index], face_distances[best_match_index]
 
             return None, None, face_distances[best_match_index]
-
     return None, None, None
 
 
-def encode_known_faces_from_images_in_dir(image_path, output_file, new_file = True):
+def encode_known_faces_from_images_in_dir(image_path, output_file):
+    '''
+    Esta funccion codifica los rostros encotrados en las imagenes presentes en el diretorio especificado
+    '''
     files, root = com.read_images_in_dir(image_path)
     known_face_metadata = []
     known_face_encodings = []
+    #source_type = com.source_type['IMAGE']
 
     write_to_file = False
     for file_name in files:
         # load the image into face_recognition library
+        source_info = {}
         face_obj = face_recognition.load_image_file(root + '/' + file_name)
         name = os.path.splitext(file_name)[0]
-        known_face_encodings, known_face_metadata = encode_and_update_face_image(face_obj, name, known_face_encodings, known_face_metadata)
+        source_info.update({'print_name': True})
+        source_info.update({'name': name})
+        source_info.update({'print_name': True})
+        source_info.update({'source_id': None})
+
+        known_face_encodings, known_face_metadata = encode_and_update_face_image(face_obj, source_info, known_face_encodings, known_face_metadata)
+
         if known_face_encodings:
             write_to_file = True
     if write_to_file:
@@ -198,8 +225,8 @@ def encode_known_faces_from_images_in_dir(image_path, output_file, new_file = Tr
         print('Ningun archivo de imagen contine rostros: {}'.format(image_path))
 
 
-def encode_and_update_face_image(face_obj, name, face_encodings, face_metadata):
-    new_encoding, new_metadata = encode_face_image(face_obj, name)
+def encode_and_update_face_image(face_obj, source_info, face_encodings, face_metadata):
+    new_encoding, new_metadata = encode_face_image(face_obj, source_info)
 
     if new_encoding is not None:
         face_encodings.append(new_encoding)
@@ -208,7 +235,7 @@ def encode_and_update_face_image(face_obj, name, face_encodings, face_metadata):
     return face_encodings, face_metadata
 
 
-def encode_face_image(face_obj, name):
+def encode_face_image(face_obj, source_info):
     # covert the array into cv2 default color format
     # THIS ALREADY DONE IN CROP
     #rgb_frame = cv2.cvtColor(face_obj, cv2.COLOR_RGB2BGR)
@@ -232,11 +259,11 @@ def encode_face_image(face_obj, name):
             encoding = face_recognition.face_encodings(rgb_small_frame)
 
         if encoding:
-            # rgb_frame was already done in crop - face_metadata_dict = new_face_metadata(rgb_frame, name)
-            face_metadata_dict = new_face_metadata(face_obj, name)
+            # rgb_frame was already done in crop - face_metadata_dict = new_face_metadata(rgb_frame, source_info['name'])
+            face_metadata_dict = new_face_metadata(face_obj, source_info)
             return encoding[0], face_metadata_dict
 
-    print('Ningun rostro detectado en: . {}'.format(name))
+    #print('Ningun rostro detectado en: . {}'.format(name))
     return None, None
 
 

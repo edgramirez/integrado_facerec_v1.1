@@ -2,6 +2,10 @@ import os
 from os import walk
 
 
+global source_type
+source_type = {'IMAGE': 'image', 'RTSP': 'rtsp', 'VIDEO': 'video'}
+
+
 def log_error(msg, _quit=True):
     print("-- PARAMETER ERROR --\n"*5)
     print(" %s \n" % msg)

@@ -232,12 +232,20 @@ def save_found_faces(metadata_of_found_faces):
     found_faces = metadata_of_found_faces
 
 
-def classify_to_known_and_unknown(frame_image, image_name, confidence, obj_id, frame_number):
+def get_camera_id(camera_id):
+    return 'FA:KE:MA:C:AD:DR:ES:S9'
+
+
+def get_source_type(camera_id):
+    return com.source_type['IMAGE']
+
+
+def classify_to_known_and_unknown(frame_image, obj_id, source_info, frame_number):
     # try to encode the crop image with the detected face
     # regresa:
     #    None, None si no puede codificar la imagen o
     #    el codificado de la image, el dictionario de metadatos de la imagen
-    img_encoding, img_metadata = biblio.encode_face_image(frame_image, image_name)
+    img_encoding, img_metadata = biblio.encode_face_image(frame_image, source_info)
 
     #face_encodings = face_recognition.face_encodings(frame_image)
     update = False
@@ -271,15 +279,15 @@ def classify_to_known_and_unknown(frame_image, image_name, confidence, obj_id, f
             if update:
                 today_now = datetime.now()
                 if today_now - known_face_metadata[best_index]['last_seen'] < timedelta(seconds=1) and known_face_metadata[best_index]['seen_frames'] > 1:
-                    print('UPDATING1', known_face_metadata[best_index]['confidence'][-1], confidence)
+                    print('UPDATING1', known_face_metadata[best_index]['confidence'][-1], source_info['confidence'])
                     known_face_metadata[best_index]['last_seen'] = today_now
                     known_face_metadata[best_index]['seen_count'] += 1
                     known_face_metadata[best_index]['seen_frames'] += 1
 
-                    if known_face_metadata[best_index]['confidence'][-1] < confidence:
+                    if known_face_metadata[best_index]['confidence'][-1] < source_info['confidence']:
                         print('UPDATING2')
                         known_face_metadata[best_index]['face_image'].append(frame_image)
-                        known_face_metadata[best_index]['confidence'].append(confidence)
+                        known_face_metadata[best_index]['confidence'].append(source_info['confidence'])
 
                         if difference is not None:
                             print('UPDATING3')
@@ -297,7 +305,7 @@ def classify_to_known_and_unknown(frame_image, image_name, confidence, obj_id, f
     
                 print('NUEVO')
                 # Add new metadata/encoding to the known_faces_metadata and known_faces_encodings
-                register_new_face_3(img_encoding, frame_image, face_label, confidence, None, obj_id)
+                register_new_face_3(img_encoding, frame_image, face_label, source_info['confidence'], None, obj_id)
     
                 # TODO: remove this file writting cause is only for debug purposes
                 #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
@@ -328,17 +336,17 @@ def classify_to_known_and_unknown(frame_image, image_name, confidence, obj_id, f
                             found_faces[best_index]['seen_frames'] += 1
                             print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['face_image'][-1]))
                             save_found_faces(found_faces)
-                            cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
+                            #cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
                 else:
                     print('Sujeto {}, encontrado en frame {}'.format(name, frame_number))
-                    cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
+                    #cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
                     found_faces.append({
                         'name': name,
                         'face_id': [obj_id],
                         'first_seen': today_now,
                         'first_seen_this_interaction': today_now,
                         'face_image': frame_image,
-                        'confidence': confidence,
+                        'confidence': source_info['confidence'],
                         'difference': difference,
                         'last_seen': today_now,
                         'seen_count': 1,
@@ -350,8 +358,6 @@ def classify_to_known_and_unknown(frame_image, image_name, confidence, obj_id, f
     return False
 
 
-# tiler_sink_pad_buffer_probe  will extract metadata received on tiler src pad
-# and update params for drawing rectangle, object information etc.
 def tiler_src_pad_buffer_probe(pad, info, u_data):
     global fake_frame_number
     num_rects = 0
@@ -371,9 +377,8 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
     l_frame = batch_meta.frame_meta_list
 
     current_pad_index = pyds.NvDsFrameMeta.cast(l_frame.data).pad_index
-    camera_name = 'CAM_1'
-    fecha_ano_mes_dia = 'Y_m_d'
-    name_sufix = camera_name + '_' + fecha_ano_mes_dia + '_'
+    camera_id = get_camera_id(current_pad_index)
+    #source_type = get_source_type(current_pad_index)
 
     while l_frame is not None:
         try:
@@ -417,8 +422,12 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
 
                 if frame_image.size > 0:
-                    image_name = name_sufix + str(obj_meta.object_id)
-                    if classify_to_known_and_unknown(frame_image, image_name, obj_meta.confidence, obj_meta.object_id, fake_frame_number):
+                    source_info = {}
+                    #source_info.update({'source_type': source_type})
+                    source_info.update({'camera_id': camera_id})
+                    source_info.update({'confidence': obj_meta.confidence})
+                    source_info.update({'name': None})
+                    if classify_to_known_and_unknown(frame_image, obj_meta.object_id, source_info, fake_frame_number):
                         #cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
                         save_image = True
             try: 
@@ -540,7 +549,7 @@ def main(args):
     for i in range(0,len(args)-2):
         fps_streams["stream{0}".format(i)]=GETFPS(i)
     number_sources=len(args)-2
-    print("Numero de fuentes :",number_sources)
+    print("Numero de fuentes :", number_sources)
 
     global folder_name
     folder_name=args[-1]
@@ -550,7 +559,7 @@ def main(args):
         sys.exit(1)
     else:
         os.mkdir(folder_name)
-        print("Frames will be saved in ",folder_name)
+        print("Frames will be saved in ", folder_name)
 
     # Standard GStreamer initialization
     GObject.threads_init()
