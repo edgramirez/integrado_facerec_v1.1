@@ -163,7 +163,7 @@ def get_timestamp():
     return int(time.time() * 1000)
 
 
-def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, difference = 0.54):
+def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, difference = 0.47):
     '''
     - See if this face was already stored in our list of faces
     - difference: is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means are completly different
