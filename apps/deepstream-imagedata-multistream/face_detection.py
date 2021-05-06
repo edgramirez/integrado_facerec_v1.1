@@ -258,7 +258,17 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
             difference = None
             if obj_id in known_faces_indexes:
                 best_index = known_faces_indexes.index(obj_id)
-                print(best_index, obj_id, known_faces_indexes)
+                if confidence > known_face_metadata[best_index]['confidence'][-1]:
+                    print('By index:', obj_id, confidence, known_face_metadata[best_index]['confidence'])
+                    known_face_encodings[best_index] = img_encoding
+                    known_face_metadata[best_index]['image'] = frame_image
+                    known_face_metadata[best_index]['confidence'].append(confidence)
+
+                    set_metadata(known_face_metadata)
+                    set_encoding(known_face_encodings)
+
+                    #cv2.imwrite("/tmp/cambio_id/nuevo_ind" + str(best_index) + ".jpg", frame_image)
+                    #cv2.imwrite("/tmp/cambio_id/original_ind" + str(best_index) + ".jpg", known_face_metadata[best_index]['image'])
                 update = True
             else:
                 metadata, best_index, difference = biblio.lookup_known_face(img_encoding, known_face_encodings, known_face_metadata)
@@ -273,7 +283,6 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
                         known_face_encodings[best_index] = img_encoding
                         known_face_metadata[best_index]['image'] = frame_image
                         known_face_metadata[best_index]['confidence'].append(confidence)
-
                         set_metadata(known_face_metadata)
                         set_encoding(known_face_encodings)
                     # TODO hay que reducir la lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer - mismo clenaup
@@ -287,17 +296,6 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
                     known_face_metadata[best_index]['seen_count'] += 1
                     known_face_metadata[best_index]['seen_frames'] += 1
 
-                    '''
-                    if known_face_metadata[best_index]['confidence'][-1] < confidence:
-                        print('UPDATING2')
-                        known_face_metadata[best_index]['image'].append(frame_image)
-                        known_face_metadata[best_index]['confidence'].append(confidence)
-
-                        if difference is not None:
-                            print('UPDATING3')
-                            known_face_metadata[best_index]['difference'].append(difference)
-        
-                    '''
                     # replacing global metadata with new data
                     set_metadata(known_face_metadata)
         
@@ -314,7 +312,7 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
     
                 # TODO: remove this file writting cause is only for debug purposes
                 #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
-                cv2.imwrite("/tmp/stream_0/frame_" + name + ".jpg", frame_image)
+                cv2.imwrite("/tmp/stream_0/frame_" + str(total_visitors) + ".jpg", frame_image)
     
                 return True
 
