@@ -302,10 +302,8 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
                 known_face_metadata[best_index]['last_seen'] = today_now
                 known_face_metadata[best_index]['seen_count'] += 1
                 known_face_metadata[best_index]['seen_frames'] += 1
-
                 # replacing global metadata with new data
                 set_metadata(known_face_metadata)
-    
                 return True
             else:
                 return False
@@ -352,8 +350,10 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
                         found_faces[relative_best_index]['last_seen'] = today_now
                         found_faces[relative_best_index]['seen_count'] += 1
                         found_faces[relative_best_index]['seen_frames'] += 1
-                        print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['image']))
+                        #print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['image']))
+                        print('multiples avistamientos del sujeto {}, encontrado en frame {}'.format(name, frame_number))
                         save_found_faces(found_faces)
+                        return True
                         #cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
             else:
                 print('Sujeto {}, encontrado en frame {}'.format(name, frame_number))
@@ -585,26 +585,53 @@ def main(args):
     GObject.threads_init()
     Gst.init(None)
 
-    # We load the database of known faces here if there is one, and we define the output DB name if we are only reading
+
+    #Emulate reading the information from the server
+    '''
+    En este pynto asumimos que ya se cargaron la funente es decir video o rtsp etc y los valorres se cargaron
+    en un dictionario global o las variables ya se cargaron en dictionarios que corresponden a las fuentes con
+    sus respectivas configuraciones.
+
+    En este caso no hay diferentes solo leer y buscar y comparar se puede hacer directamente llamando a las
+    funcciones en la biblioteca
+
+    De la misma forma los rostros que se quieran cargar puedes cargarse por configuracion indicando explicitamente
+    los nombres de los archivos
+    '''
+    set_action(actions['find'])
+    set_action(actions['read'])
+    action = get_action('simulacro')
     pwd = os.getcwd()
-    known_faces_db_name = pwd + '/data/encoded_known_faces/knownFaces.dat'
-    output_db_name = pwd + '/data/video_encoded_faces/test_video_default.data'
-    set_known_faces_db_name(known_faces_db_name)
-    set_output_db_name(output_db_name)
+
+    # We load the database of known faces here if there is one, and we define the output DB name if we are only reading
+    #pwd = os.getcwd()
+    #known_faces_db_name = pwd + '/data/encoded_known_faces/knownFaces.dat'
+    #output_db_name = pwd + '/data/video_encoded_faces/test_video_default.data'
+    #set_known_faces_db_name(known_faces_db_name)
+    #set_output_db_name(output_db_name)
 
     # try to read the information from the known faces DB
-    
-    total, encodings, metadata = biblio.read_pickle(known_faces_db_name, False)
+
+    if action == actions['read']:
+        output_db_name = pwd + '/data/video_encoded_faces/test_video_default.data'
+        total, encodings, metadata = 0, [] , []
+    elif action == actions['find']:
+        output_db_name = pwd + '/data/found_faces/found_faces_db.dat'
+        known_faces_db_name = pwd + '/data/encoded_known_faces/knownFaces.dat'
+        if com.file_exists(known_faces_db_name):
+            set_known_faces_db_name(known_faces_db_name)
+            total, encodings, metadata = biblio.read_pickle(known_faces_db_name, False)
+        else:
+            com.log_error('Unable to open {}'.format(known_faces_db_name))
+
     set_known_faces_db(total, encodings, metadata)
+    set_output_db_name(output_db_name)
 
-    if total == 0:
-        action = 'read'
-    else:
-        action = 'find'
-        if com.file_exists_and_not_empty(output_db_name):
-            action = 'compare'
+        #if com.file_exists_and_not_empty(output_db_name):
 
-    set_action(actions[action])
+        #    action = 'compare'
+
+    #set_action(actions[action])
     #print(action)
     #quit()
 
