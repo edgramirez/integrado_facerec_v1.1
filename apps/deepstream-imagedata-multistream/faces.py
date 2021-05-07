@@ -99,6 +99,10 @@ elif sys.argv[1] == 'compareData':
         com.log_error(msg)
 
     import lib.biblioteca as biblio
-    biblio.compare_data(video_data_file, known_data_file)
+
+    similarity_level = {'looks_like': .8, 'like': .6, 'similar': .4, 'very_similar': .3, 'match': .2}
+    find_levels = [similarity_level['looks_like'], similarity_level['like'], similarity_level['similar'], similarity_level['very_similar'], similarity_level['match']]
+    #biblio.compare_data(video_data_file, known_data_file, .6)
+    biblio.compare_data(video_data_file, known_data_file, find_levels)
 else:
     com.log_error(msg)

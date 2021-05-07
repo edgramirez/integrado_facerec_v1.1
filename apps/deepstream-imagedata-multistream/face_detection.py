@@ -346,12 +346,12 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
                 #print('ya detectado...', relative_best_index)
 
                 if relative_best_index is not None:
-                    if today_now - found_faces[relative_best_index]['last_seen'] > timedelta(seconds=5):
+                    if today_now - found_faces[relative_best_index]['last_seen'] > timedelta(seconds=delta):
                         found_faces[relative_best_index]['last_seen'] = today_now
                         found_faces[relative_best_index]['seen_count'] += 1
                         found_faces[relative_best_index]['seen_frames'] += 1
                         #print('multiples avistamientos del sujeto {}, encontrado en frame {}, image: \n\n  {}'.format(name, frame_number, metadata['image']))
-                        print('multiples avistamientos del sujeto {}, encontrado en frame {}'.format(name, frame_number))
+                        print('{} avistamientos del sujeto {}, registered date {}'.format(found_faces[relative_best_index]['seen_frames'], name, today_now))
                         save_found_faces(found_faces)
                         return True
                         #cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
@@ -598,8 +598,8 @@ def main(args):
     De la misma forma los rostros que se quieran cargar puedes cargarse por configuracion indicando explicitamente
     los nombres de los archivos
     '''
-    set_action(actions['find'])
     set_action(actions['read'])
+    set_action(actions['find'])
     action = get_action('simulacro')
     pwd = os.getcwd()
 

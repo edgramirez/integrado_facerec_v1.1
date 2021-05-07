@@ -163,10 +163,10 @@ def get_timestamp():
     return int(time.time() * 1000)
 
 
-def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, difference = 0.47):
+def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, tolerated_difference = 0.47):
     '''
     - See if this face was already stored in our list of faces
-    - difference: is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means are completly different
+    - tolerated_difference: is the parameter that indicates how much 2 faces are similar, 0 is the best match and 1 means are completly different
     '''
     # If our known face list is empty, just return nothing since we can't possibly have seen this face.
     if known_face_encodings:
@@ -187,7 +187,7 @@ def lookup_known_face(face_encoding, known_face_encodings, known_face_metadata, 
             best_match_index = np.argmin(face_distances)
 
             # La distancia de este elemento con la menor distancia tiene que ser menor a nuestro parametro de aceptacion
-            if face_distances[best_match_index] < difference:
+            if face_distances[best_match_index] < tolerated_difference:
                 # Values returned:  
                 #        meta que hace match,                     el indice real de la lista global, distancia a la imagen analizada
                 return   known_face_metadata[indexes[best_match_index]], indexes[best_match_index], face_distances[best_match_index]
@@ -294,26 +294,43 @@ def compare_pickle_against_unknown_images(pickle_file, image_dir):
             print(file_path)
 
 
-def compare_data(data_file, known_faces_data):
+def compare_data(data_file, known_faces_data, tolerated_difference_list):
     # load data from binary db of all faces from video
     total_visitors, video_face_encodings, video_faces_metadata = read_pickle(data_file)
+
     # load data from binary db of known faces 
     total_known_faces, known_face_encodings, known_face_metadata = read_pickle(known_faces_data)
 
-    for video_face_encoding, video_metadata in zip(video_face_encodings, video_faces_metadata):
-        # check one by one all the images in the video against the known faces
-        metadata = lookup_known_face(video_face_encoding, known_face_encodings, known_face_metadata)
+    if total_known_faces == 0 or total_visitors == 0:
+        com.log_error("One of the db does not contain information {}")
 
-        if metadata:
-            print('Face {} detected at {}'.format(
-                metadata['name'],
-                video_metadata['first_seen'],
-                video_metadata['first_seen_this_interaction'],
-                video_metadata['last_seen'],
-                video_metadata['seen_count'],
-                video_metadata['seen_frames']
-                ))
+    if not isinstance(tolerated_difference_list, list) and len(tolerated_difference_list) > 0:
+        com.log_error("Paramter range_list must be 'list'. Current type {}".format(type(range_list)))
 
+    for tolerated_difference in tolerated_difference_list:
+        if tolerated_difference < 1 and tolerated_difference > 0:
+            print('\n---- Using tolerated difference: {} ----'.format(tolerated_difference))
+            #compare_data(face_encoding, known_face_encodings, known_face_metadata, tolerated_difference)
+
+            #for video_face_encoding, video_metadata in zip(video_face_encodings, video_faces_metadata):
+            for known_face_encoding, known_metadata in zip(known_face_encodings, known_face_metadata):
+                # check one by one all the images in the video against the known faces
+                metadata, best_index, lowest_distances = lookup_known_face(known_face_encoding, video_face_encodings, video_faces_metadata, tolerated_difference)
+                if best_index:
+                    #print(metadata)
+                    print('-'*8)
+                    print('Subject {} found'.format(known_metadata['name']))
+                    #print('camera_id {}'.format(video_faces_metadata[best_index]['camera_id']))
+                    print('initial {}'.format(video_faces_metadata[best_index]['first_seen']))
+                    print('last {}'.format(video_faces_metadata[best_index]['last_seen']))
+                    print('distance: {}'.format(lowest_distances))
+    #quit()
+
+    '''
+        if best_index:
+            #print('Face {} detected at {} {} {} {} {}'.format(metadata['name'], video_metadata['first_seen'], video_metadata['first_seen_this_interaction'], video_metadata['last_seen'], video_metadata['seen_count'], video_metadata['seen_frames']))
+            print('Face {} '.format(metadata['name']))
+    '''
 
 def read_video(video_input, data_file, **kwargs):
     video_capture = cv2.VideoCapture(video_input)
