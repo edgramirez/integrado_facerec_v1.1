@@ -157,6 +157,14 @@ def write_to_pickle(known_face_encodings, known_face_metadata, data_file):
         pickle.dump(face_data, f)
 
 
+def cleanup_tracking_list(tracking_list, tracking_absence_dict, max_value):
+    indexes_to_delete =  [ key for key, value in tracking_absence_dict.items() if value > max_value]
+    for delete_item in indexes_to_delete:
+        tracking_list.remove(delete_item)
+        tracking_absence_dict.pop(delete_item)
+    return tracking_list, tracking_absence_dict
+
+
 def read_pickle(pickle_file, exception=True):
     try:
         with open(pickle_file, 'rb') as f:

@@ -77,11 +77,12 @@ pgie_classes_str= ["face", "Placa", "Marca","Modelo"]
 CURRENT_DIR = os.getcwd()
 
 
-global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_index, video_initial_time, fake_frame_number, found_faces
+global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_index, video_initial_time, fake_frame_number, found_faces, tracking_absence_dict
 known_faces_indexes = []
 known_face_metadata = []
 known_face_encodings = []
 found_faces = []
+tracking_absence_dict = {}
 actions = {'read': 1, 'find': 2, 'compare': 3}
 fake_frame_number = 0
 
@@ -120,6 +121,19 @@ def set_encoding(encodings):
     known_face_encodings = encodings
 
 
+def set_tracking_absence_dict(camera_id, dictionary):
+    global tracking_absence_dict
+    tracking_absence_dict = dictionary
+
+
+def set_known_faces_indexes(camera_id, new_list = None):
+    global known_faces_indexes
+    if new_list:
+        known_faces_indexes = new_list
+    else:
+        known_faces_indexes = []
+
+
 def add_faces_encodings(face_encoding):
     global known_face_encodings
     known_face_encodings.append(face_encoding)
@@ -142,9 +156,14 @@ def get_known_faces_db():
     return total_visitors, known_face_metadata, known_face_encodings
 
 
-def get_known_faces_indexes():
+def get_known_faces_indexes(camera_id):
     global known_faces_indexes
     return known_faces_indexes
+
+
+def get_tracking_absence_dict(camera_id):
+    global tracking_absence_dict
+    return tracking_absence_dict
 
 
 def get_found_faces():
@@ -229,14 +248,14 @@ def update_known_faces_indexes(new_value, best_index = None):
             known_faces_indexes.append(new_value)
 
 
-def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity):
+def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes):
     # Using face_detection library, try to encode the image
     update = False
     best_index = None
 
     # get the current information from the database - known faces
     total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-    known_faces_indexes = get_known_faces_indexes()
+    #known_faces_indexes = get_known_faces_indexes()
 
     if program_action == actions['read']:
         difference = None
@@ -368,6 +387,10 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
     delta = get_delta(camera_id)
     default_similarity = get_similarity(camera_id)
 
+    known_faces_indexes = get_known_faces_indexes(camera_id)
+    tracking_absence_dict = get_tracking_absence_dict(camera_id)
+    id_set = set()
+
     while l_frame is not None:
         try:
             # Note that l_frame.data needs a cast to pyds.NvDsFrameMeta
@@ -412,13 +435,13 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 frame_image = crop_and_get_faces_locations(n_frame, obj_meta, obj_meta.confidence)
 
                 if frame_image.size > 0:
-                    source_info = {}
                     name = None
-                    if classify_to_known_and_unknown(camera_id, frame_image, obj_meta.object_id, name, program_action, obj_meta.confidence, fake_frame_number, delta, default_similarity):
+                    id_set.add(obj_meta.object_id)
+                    if classify_to_known_and_unknown(camera_id, frame_image, obj_meta.object_id, name, program_action, obj_meta.confidence, fake_frame_number, delta, default_similarity, known_faces_indexes):
                         save_image = True
                         #cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
             try: 
-                l_obj=l_obj.next
+                l_obj = l_obj.next
             except StopIteration:
                 break
 
@@ -432,8 +455,24 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
         except StopIteration:
             break
 
+        if id_set and known_faces_indexes:
+            missing_ids = [id_item for id_item in known_faces_indexes if id_item not in id_set ]
+            for item in missing_ids:
+                if item not in tracking_absence_dict:
+                    tracking_absence_dict.update({item: 1})
+                else:
+                    tracking_absence_dict[item] += 1
+
     if save_image:
         write_to_db()
+        if id_set and known_faces_indexes:
+            #print('antes:', tracking_absence_dict)
+            #print('antess:',known_faces_indexes)
+            known_faces_indexes, tracking_absence_dict = biblio.cleanup_tracking_list(known_faces_indexes, tracking_absence_dict, 80)
+            set_tracking_absence_dict(camera_id, tracking_absence_dict)
+            set_known_faces_indexes(camera_id, known_faces_indexes)
+            #print('despu:',tracking_absence_dict)
+            #print('ddespu:',known_faces_indexes)
 
     return Gst.PadProbeReturn.OK
 
@@ -564,12 +603,12 @@ def main(args):
     De la misma forma los rostros que se quieran cargar puedes cargarse por configuracion indicando explicitamente
     los nombres de los archivos
     '''
-    scfg = biblio.get_server_info()
-    print(scfg)
-    quit()
+    #scfg = biblio.get_server_info()
+    #print(scfg)
+    #quit()
 
-    set_action(actions['read'])
     set_action(actions['find'])
+    set_action(actions['read'])
     action = get_action('simulacro')
     pwd = os.getcwd()
 
