@@ -2,14 +2,139 @@ import pickle
 import os
 import cv2
 import time
+import requests
+import socket
+import fcntl
+import struct
+import json
 from os import walk
 import face_recognition
 import numpy as np
 import lib.common as com
 from datetime import datetime, timedelta
 
+global header
+global srv_url
 
 font = cv2.FONT_HERSHEY_SIMPLEX
+srv_url = 'https://mit.kairosconnect.app/'
+header = None
+
+##### GENERIC FUNCTIONS
+
+
+def log_error(msg, quit_program = True):
+    print("-- PARAMETER ERROR --\n"*5)
+    print(" %s \n" % msg)
+    print("-- PARAMETER ERROR --\n"*5)
+    if quit_program:
+        quit()
+    else:
+        return False
+
+
+def get_supported_actions():
+    return ('GET', 'POST', 'PUT', 'DELETE')
+
+
+def get_timestamp():
+    return int(time.time() * 1000)
+
+
+def set_header(token_file = None):
+    if token_file is None:
+        token_file = '../.token'
+    global header
+    if header is None:
+        if isinstance(token_file, str):
+            token_handler = com.open_file(token_file, 'r+')
+            if token_handler:
+                header = {'Content-type': 'application/json', 'X-KAIROS-TOKEN': token_handler.read().split('\n')[0]}
+                print('Header correctly set')
+                return True
+    return False
+
+
+def getHwAddr(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', bytes(ifname, 'utf-8')[:15]))
+    return ':'.join('%02x' % b for b in info[18:24])
+
+
+def get_ip_address(ifname):
+    return [l for l in ([ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")][:1], [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]]) if l][0][0]
+
+
+def get_machine_macaddresses():
+    list_of_interfaces = [item for item in os.listdir('/sys/class/net/') if item != 'lo']
+    macaddress_list = []
+    for iface_name in list_of_interfaces:
+        ip = get_ip_address(iface_name)
+        if ip:
+            macaddress_list.append(getHwAddr(iface_name))
+            return macaddress_list
+
+
+def get_server_info(abort_if_exception = True, quit_program = True):
+    global srv_url
+    url = srv_url + 'tx/device.getConfigByProcessDevice'
+    for machine_id in get_machine_macaddresses():
+        machine_id = '00:04:4b:eb:f6:dd'  # HARDCODED MACHINE ID
+        data = {"id": machine_id}
+        
+        if abort_if_exception:
+            response = send_json(data, 'POST', url)
+        else:
+            options = {'abort_if_exception': False}
+            response = send_json(data, 'POST', url, **options)
+    if response:
+        return json.loads(response.text)
+    else:
+        return log_error("Unable to retrieve the device configuration from the server. Server response".format(response), quit_program = quit_program)
+
+
+def send_json(payload, action, url = None, **options):
+    set_header()
+    global header
+
+    if action not in get_supported_actions() or url is None:
+        raise Exception('Requested action: ({}) not supported. valid options are:'.format(action, get_supported_actions()))
+
+    retries = options.get('retries', 2)
+    sleep_time = options.get('sleep_time', 1)
+    expected_response = options.get('expected_response', 200)
+    abort_if_exception = options.get('abort_if_exception', True)
+
+    data = json.dumps(payload)
+
+    for retry in range(retries):
+        try:
+            if action == 'GET':
+                r = requests.get(url, data=data, headers=header)
+            elif action == 'POST':
+                r = requests.post(url, data=data, headers=header)
+            elif action == 'PUT':
+                r = requests.put(url, data=data, headers=header)
+            else:
+                r = requests.delete(url, data=data, headers=header)
+            return r
+        except requests.exceptions.ConnectionError as e:
+            time.sleep(sleep_time)
+            if retry == retries - 1 and abort_if_exception:
+                raise Exception("Unable to Connect to the server after {} retries\n. Original exception: {}".format(retry, str(e)))
+        except requests.exceptions.HTTPError as e:
+            time.sleep(sleep_time)
+            if retry == retries - 1 and abort_if_exception:
+                raise Exception("Invalid HTTP response in {} retries\n. Original exception: {}".format(retry, str(e)))
+        except requests.exceptions.Timeout as e:
+            time.sleep(sleep_time)
+            if retry == retries - 1 and abort_if_exception:
+                raise Exception("Timeout reach in {} retries\n. Original exception: {}".format(retry, str(e)))
+        except requests.exceptions.TooManyRedirects as e:
+            time.sleep(sleep_time)
+            if retry == retries - 1 and abort_if_exception:
+                raise Exception("Too many redirection in {} retries\n. Original exception: {}".format(retry, str(e)))
+
 
 def update_known_faces_encodings(new_encoding):
     global known_face_encodings

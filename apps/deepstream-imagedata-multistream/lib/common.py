@@ -41,3 +41,8 @@ def read_images_in_dir(path_to_read):
     images = [item for item in file_names if '.jpeg' in item[-5:] or '.jpg' in item[-4:] or 'png' in item[-4:] ]
     return images, dir_name
 
+
+def open_file(file_name, option='a+'):
+    if file_exists(file_name):
+        return open(file_name, option)
+    return False
