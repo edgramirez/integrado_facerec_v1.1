@@ -151,7 +151,7 @@ def get_output_db_name():
     return output_file
 
 
-def get_known_faces_db():
+def get_known_faces_db(camera_id):
     global total_visitors, known_face_metadata, known_face_encodings
     return total_visitors, known_face_metadata, known_face_encodings
 
@@ -248,13 +248,14 @@ def update_known_faces_indexes(new_value, best_index = None):
             known_faces_indexes.append(new_value)
 
 
-def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes):
+#def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes):
+def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes, known_face_metadata, known_face_encodings):
     # Using face_detection library, try to encode the image
     update = False
     best_index = None
 
     # get the current information from the database - known faces
-    total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
+    #total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
     #known_faces_indexes = get_known_faces_indexes()
 
     if program_action == actions['read']:
@@ -318,7 +319,8 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
             # TODO: remove this file writting cause is only for debug purposes
             #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
             #cv2.imwrite("/tmp/stream_0/frame_" + str(face_label) + ".jpg", frame_image)
-    else:
+
+    else: # ---- FIND FACES ----
         img_encoding, img_metadata = biblio.encode_face_image(frame_image, name, camera_id, confidence, False)
 
         if img_encoding is None:
@@ -387,6 +389,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
     delta = get_delta(camera_id)
     default_similarity = get_similarity(camera_id)
 
+    total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db(camera_id)
     known_faces_indexes = get_known_faces_indexes(camera_id)
     tracking_absence_dict = get_tracking_absence_dict(camera_id)
     id_set = set()
@@ -437,7 +440,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 if frame_image.size > 0:
                     name = None
                     id_set.add(obj_meta.object_id)
-                    if classify_to_known_and_unknown(camera_id, frame_image, obj_meta.object_id, name, program_action, obj_meta.confidence, fake_frame_number, delta, default_similarity, known_faces_indexes):
+                    if classify_to_known_and_unknown(camera_id, frame_image, obj_meta.object_id, name, program_action, obj_meta.confidence, fake_frame_number, delta, default_similarity, known_faces_indexes, known_face_metadata, known_face_encodings):
                         save_image = True
                         #cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
             try: 
@@ -464,7 +467,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                     tracking_absence_dict[item] += 1
 
     if save_image:
-        write_to_db()
+        write_to_db(known_face_metadata, known_face_encodings)
         if id_set and known_faces_indexes:
             #print('antes:', tracking_absence_dict)
             #print('antess:',known_faces_indexes)
@@ -477,8 +480,8 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
     return Gst.PadProbeReturn.OK
 
 
-def write_to_db():
-    total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
+def write_to_db(known_face_metadata, known_face_encodings):
+    #total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
     biblio.write_to_pickle(known_face_encodings, known_face_metadata, get_output_db_name())
 
 
