@@ -445,14 +445,15 @@ def compare_data(data_file, known_faces_data, tolerated_difference_list):
             print('\n---- Using tolerated difference: {} ----'.format(tolerated_difference))
             #compare_data(face_encoding, known_face_encodings, known_face_metadata, tolerated_difference)
 
-            #for video_face_encoding, video_metadata in zip(video_face_encodings, video_faces_metadata):
-            for known_face_encoding, known_metadata in zip(known_face_encodings, known_face_metadata):
+            #for known_face_encoding, known_metadata in zip(known_face_encodings, known_face_metadata):
+            for video_face_encoding, video_metadata in zip(video_face_encodings, video_faces_metadata):
                 # check one by one all the images in the video against the known faces
-                metadata, best_index, lowest_distances = lookup_known_face(known_face_encoding, video_face_encodings, video_faces_metadata, tolerated_difference)
+                #metadata, best_index, lowest_distances = lookup_known_face(known_face_encoding, video_face_encodings, video_faces_metadata, tolerated_difference)
+                metadata, best_index, lowest_distances = lookup_known_face(video_face_encoding, known_face_encodings, known_face_metadata, tolerated_difference)
                 if best_index:
                     #print(metadata)
                     print('-'*8)
-                    print('Subject {} found'.format(known_metadata['name']))
+                    print('Subject {} found'.format(metadata['name']))
                     #print('camera_id {}'.format(video_faces_metadata[best_index]['camera_id']))
                     print('initial {}'.format(video_faces_metadata[best_index]['first_seen']))
                     print('last {}'.format(video_faces_metadata[best_index]['last_seen']))
