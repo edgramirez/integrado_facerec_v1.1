@@ -77,8 +77,9 @@ pgie_classes_str= ["face", "Placa", "Marca","Modelo"]
 CURRENT_DIR = os.getcwd()
 
 
-global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_index, video_initial_time, fake_frame_number, found_faces, tracking_absence_dict
+global total_visitors, known_face_encodings, known_face_metadata, actions, known_faces_indexes, not_applicable_id, video_initial_time, fake_frame_number, found_faces, tracking_absence_dict
 known_faces_indexes = []
+not_applicable_id = []
 known_face_metadata = []
 known_face_encodings = []
 found_faces = []
@@ -99,12 +100,12 @@ def set_known_faces_db_name(value):
     input_file = value
 
 
-def set_output_db_name(value):
+def set_output_db_name(camera_id, value):
     global output_file
     output_file = value
 
 
-def set_known_faces_db(total, encodings, metadata):
+def set_known_faces_db(camera_id, total, encodings, metadata):
     global total_visitors, known_face_encodings, known_face_metadata
     total_visitors = total
     known_face_encodings = encodings
@@ -146,7 +147,7 @@ def get_action(camera_id):
     return action
 
 
-def get_output_db_name():
+def get_output_db_name(camera_id):
     global output_file
     return output_file
 
@@ -161,12 +162,17 @@ def get_known_faces_indexes(camera_id):
     return known_faces_indexes
 
 
+def get_not_applicable_id(camera_id):
+    global not_applicable_id
+    return not_applicable_id
+
+
 def get_tracking_absence_dict(camera_id):
     global tracking_absence_dict
     return tracking_absence_dict
 
 
-def get_found_faces():
+def get_found_faces(camera_id):
     global found_faces
     return found_faces
 
@@ -228,14 +234,19 @@ def register_new_face_3(face_encoding, image, name, confidence, difference, face
     # Add the face encoding to the list of known faces encodings
     add_faces_encodings(face_encoding)
     # Add new element to the list - this list maps and mirrows the face_ids for the meta
-    add_new_known_faces_indexes(face_id)
+    #add_new_known_faces_indexes(face_id)
+    update_known_faces_indexes(face_id)
 
 
-def add_new_known_faces_indexes(new_value):
-    global known_faces_indexes
-    #print('guardandon nuevo valro de indices', new_value)
-    if new_value not in known_faces_indexes:
-        known_faces_indexes.append(new_value)
+def update_not_applicable_id(camera_id, new_value, best_index = None):
+    global not_applicable_id
+    if best_index is not None:
+        not_applicable_id[best_index] = new_value
+    else:
+        # check value was not previously registered in list
+        if new_value not in not_applicable_id:
+            not_applicable_id.append(new_value)
+            print('new_value_into:', new_value, not_applicable_id)
 
 
 def update_known_faces_indexes(new_value, best_index = None):
@@ -246,38 +257,37 @@ def update_known_faces_indexes(new_value, best_index = None):
         # check value was not previously registered in list
         if new_value not in known_faces_indexes:
             known_faces_indexes.append(new_value)
+            print('new_value_into:', new_value, known_faces_indexes)
 
 
-#def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes):
-def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes, known_face_metadata, known_face_encodings):
+def classify_to_known_and_unknown(camera_id, image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes, known_face_metadata, known_face_encodings):
     # Using face_detection library, try to encode the image
     update = False
     best_index = None
 
     # get the current information from the database - known faces
     #total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-    #known_faces_indexes = get_known_faces_indexes()
 
     if program_action == actions['read']:
         difference = None
         if obj_id in known_faces_indexes:
             best_index = known_faces_indexes.index(obj_id)
-            if confidence > known_face_metadata[best_index]['confidence'][-1]:
-                img_encoding, img_metadata = biblio.encode_face_image(frame_image, name, camera_id, confidence, False)
+            if confidence - known_face_metadata[best_index]['confidence'][-1] > 0.0038:
+                img_encoding, img_metadata = biblio.encode_face_image(image, name, camera_id, confidence, False)
 
                 if img_encoding is None:
                     return False
 
                 known_face_encodings[best_index] = img_encoding
-                known_face_metadata[best_index]['image'] = frame_image
+                known_face_metadata[best_index]['image'] = image
                 known_face_metadata[best_index]['confidence'].append(confidence)
                 set_metadata(known_face_metadata)
                 set_encoding(known_face_encodings)
-                #cv2.imwrite("/tmp/cambio_id/nuevo_ind" + str(best_index) + ".jpg", frame_image)
+                #cv2.imwrite("/tmp/cambio_id/nuevo_ind" + str(best_index) + ".jpg", image)
                 #cv2.imwrite("/tmp/cambio_id/original_ind" + str(best_index) + ".jpg", known_face_metadata[best_index]['image'])
             update = True
         else:
-            img_encoding, img_metadata = biblio.encode_face_image(frame_image, name, camera_id, confidence, False)
+            img_encoding, img_metadata = biblio.encode_face_image(image, name, camera_id, confidence, False)
 
             if img_encoding is None:
                 return False
@@ -288,16 +298,17 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
                 update = True
                 if confidence > metadata['confidence'][-1]:
                     known_face_encodings[best_index] = img_encoding
-                    known_face_metadata[best_index]['image'] = frame_image
+                    known_face_metadata[best_index]['image'] = image
                     known_face_metadata[best_index]['confidence'].append(confidence)
                     set_metadata(known_face_metadata)
                     set_encoding(known_face_encodings)
-                    #cv2.imwrite("/tmp/cambio_id/nuevo_" + str(best_index) + ".jpg", frame_image)
+                    #cv2.imwrite("/tmp/cambio_id/nuevo_" + str(best_index) + ".jpg", image)
                     #cv2.imwrite("/tmp/cambio_id/original_" + str(best_index) + ".jpg", metadata['image'])
             # TODO hay que reducir la lista cada minuto por que los ids que ya pasaron y que no aparecen ya no van a aparecer - mismo clenaup
+
         if update:
             today_now = datetime.now()
-            if today_now - known_face_metadata[best_index]['last_seen'] < timedelta(seconds=delta) and known_face_metadata[best_index]['seen_frames'] > 1:
+            if today_now - known_face_metadata[best_index]['last_seen'] > timedelta(seconds=delta) and known_face_metadata[best_index]['seen_frames'] > 1:
                 known_face_metadata[best_index]['last_seen'] = today_now
                 known_face_metadata[best_index]['seen_count'] += 1
                 known_face_metadata[best_index]['seen_frames'] += 1
@@ -307,60 +318,128 @@ def classify_to_known_and_unknown(camera_id, frame_image, obj_id, name, program_
             else:
                 return False
         else:  
-            img_encoding, img_metadata = biblio.encode_face_image(frame_image, name, camera_id, confidence, False)
+            img_encoding, img_metadata = biblio.encode_face_image(image, name, camera_id, confidence, False)
 
             if img_encoding is None:
                 return False
 
             face_label = 'visitor_' + str(len(known_face_metadata))
-            register_new_face_3(img_encoding, frame_image, face_label, confidence, None, obj_id)
+            register_new_face_3(img_encoding, image, face_label, confidence, None, obj_id)
             return True
 
             # TODO: remove this file writting cause is only for debug purposes
-            #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", frame_image)
-            #cv2.imwrite("/tmp/stream_0/frame_" + str(face_label) + ".jpg", frame_image)
+            #cv2.imwrite(folder_name + "/stream_" + str(frame_meta.pad_index) + "/frame_" + str(total_visitors) + ".jpg", image)
+            #cv2.imwrite("/tmp/stream_0/frame_" + str(face_label) + ".jpg", image)
 
     else: # ---- FIND FACES ----
-        img_encoding, img_metadata = biblio.encode_face_image(frame_image, name, camera_id, confidence, False)
+        not_applicable_id = get_not_applicable_id(camera_id)
 
-        if img_encoding is None:
-            return False
+        if obj_id not in known_faces_indexes:
+            if obj_id in not_applicable_id: 
+                return False
 
-        metadata, best_index, difference = biblio.lookup_known_face(img_encoding, known_face_encodings, known_face_metadata, default_similarity)
+            img_encoding, img_metadata = biblio.encode_face_image(image, name, camera_id, confidence, False)
 
-        if best_index:
+            if img_encoding is None:
+                return  False
+
+            metadata, best_index, difference = biblio.lookup_known_face(img_encoding, known_face_encodings, known_face_metadata)
+
+            # hay coincidencia alguno de los rostros buscados
+            if best_index is None:
+                update_not_applicable_id(camera_id, obj_id)
+                return False
+
+            print('Sujeto {}, encontrado en frame {} con id: {}'.format(metadata['name'], frame_number, obj_id))
+            # obtine la estructura y datos actuales de los rostros encontrados 
+            found_faces = get_found_faces(camera_id)
             today_now = datetime.now()
-            name = metadata['name']
-            found_faces = get_found_faces()
 
-            if name in known_faces_indexes:
-                relative_best_index = known_faces_indexes.index(name)
-                if relative_best_index is not None:
-                    if today_now - found_faces[relative_best_index]['last_seen'] > timedelta(seconds=delta):
-                        found_faces[relative_best_index]['last_seen'] = today_now
-                        found_faces[relative_best_index]['seen_count'] += 1
-                        found_faces[relative_best_index]['seen_frames'] += 1
-                        print('{} deteccion del sujeto {}, registered date {}'.format(found_faces[relative_best_index]['seen_frames'], name, today_now))
+            # verificar si ya se encuentra detectado bajo otro id y entonces solo actualiza
+            i = 0
+            for found_face in found_faces:
+                if found_face['name'] == metadata['name']:
+                    found_faces[i]['face_id'].append(obj_id)
+                    found_faces[i]['last_seen'].append(today_now)
+                    found_faces[i]['confidence'].append(confidence)
+                    found_faces[i]['difference'].append(difference)
+                    found_faces[i]['seen_frames'].append(frame_number)
+                    found_faces[i]['image'].append(image)
+                    found_faces[i]['seen_count'] += 1
+
+                    # actualiza las variables globales
+                    save_found_faces(found_faces)
+                    update_known_faces_indexes(obj_id)
+                    return True
+                i += 1
+
+            found_faces.append({
+                'name': metadata['name'],
+                'face_id': [obj_id],
+                'first_seen': today_now,
+                'last_seen': [today_now],
+                'confidence': [confidence],
+                'difference': [difference],
+                'seen_frames': [frame_number],
+                'image': [image],
+                'seen_count': 1
+                })
+
+            # actualiza las variables globales
+            save_found_faces(found_faces)
+            update_known_faces_indexes(obj_id)
+            return True
+        else:
+            # ID already in the list of IDs
+            found_faces = get_found_faces(camera_id)
+            i = 0
+            for found_elem in found_faces:
+                # same id
+                if found_elem['face_id'][-1] == obj_id:
+                    today_now = datetime.now()
+                    # edicion si se cumple tiempo
+                    if today_now - found_faces[i]['last_seen'][-1] > timedelta(seconds=delta):
+                        found_faces[i]['last_seen'].append(today_now)
+                        found_faces[i]['seen_count'] += 1
+                        found_faces[i]['seen_frames'].append(frame_number)
+
+                        if confidence - found_elem['confidence'][-1] > 0.0038: 
+                            img_encoding, img_metadata = biblio.encode_face_image(image, name, camera_id, confidence, False)
+
+                            if img_encoding is not None:
+                                metadata, best_index, difference = biblio.lookup_known_face(img_encoding, known_face_encodings, known_face_metadata)
+
+                                if best_index is not None and found_elem['difference'][-1] < difference:
+                                    found_faces[i]['difference'].append(difference)
+                                    found_faces[i]['confidence'].append(confidence)
+                                    found_faces[i]['image'].append(image)
+
+                        # actualiza las variables globales
                         save_found_faces(found_faces)
+                        update_known_faces_indexes(obj_id)
                         return True
-                        #cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
-            else:
-                print('Sujeto {}, encontrado en frame {}'.format(name, frame_number))
-                found_faces.append({
-                    'name': name,
-                    'face_id': [obj_id],
-                    'first_seen': today_now,
-                    'first_seen_this_interaction': today_now,
-                    'image': frame_image,
-                    'confidence': confidence,
-                    'difference': difference,
-                    'last_seen': today_now,
-                    'seen_count': 1,
-                    'seen_frames': 1
-                    })
-                save_found_faces(found_faces)
-                update_known_faces_indexes(name)
-                #cv2.imwrite('/tmp/found_elements/' + str(image_name) + ".jpg", frame_image)
+
+                    # edicion si la confidencia es major y eso lleva a una distancia menor
+                    if confidence - found_elem['confidence'][-1] > 0.0038: 
+                        img_encoding, img_metadata = biblio.encode_face_image(image, name, camera_id, confidence, False)
+
+                        if img_encoding is None:
+                            return False
+
+                        metadata, best_index, difference = biblio.lookup_known_face(img_encoding, known_face_encodings, known_face_metadata)
+
+                        if best_index is not None and difference < found_elem['difference'][-1]:
+                            found_faces[i]['difference'].append(difference)
+                            found_faces[i]['confidence'].append(confidence)
+                            found_faces[i]['seen_frames'].append(frame_number)
+                            found_faces[i]['image'].append(image)
+
+                            # actualiza las variables globales
+                            save_found_faces(found_faces)
+                            update_known_faces_indexes(obj_id)
+                            return True
+                i += 1
+            return False
     return False
 
 
@@ -390,7 +469,6 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
     default_similarity = get_similarity(camera_id)
 
     total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db(camera_id)
-    known_faces_indexes = get_known_faces_indexes(camera_id)
     tracking_absence_dict = get_tracking_absence_dict(camera_id)
     id_set = set()
 
@@ -440,6 +518,7 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                 if frame_image.size > 0:
                     name = None
                     id_set.add(obj_meta.object_id)
+                    known_faces_indexes = get_known_faces_indexes(camera_id)
                     if classify_to_known_and_unknown(camera_id, frame_image, obj_meta.object_id, name, program_action, obj_meta.confidence, fake_frame_number, delta, default_similarity, known_faces_indexes, known_face_metadata, known_face_encodings):
                         save_image = True
                         #cv2.imwrite('/tmp/found_elements/found_multiple_' + str(fake_frame_number) + ".jpg", frame_image)
@@ -467,22 +546,20 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
                     tracking_absence_dict[item] += 1
 
     if save_image:
-        write_to_db(known_face_metadata, known_face_encodings)
+        write_to_db(known_face_metadata, known_face_encodings, get_output_db_name(camera_id))
+
         if id_set and known_faces_indexes:
-            #print('antes:', tracking_absence_dict)
-            #print('antess:',known_faces_indexes)
+            print('antes: ', known_faces_indexes)
             known_faces_indexes, tracking_absence_dict = biblio.cleanup_tracking_list(known_faces_indexes, tracking_absence_dict, 80)
             set_tracking_absence_dict(camera_id, tracking_absence_dict)
             set_known_faces_indexes(camera_id, known_faces_indexes)
-            #print('despu:',tracking_absence_dict)
-            #print('ddespu:',known_faces_indexes)
+            print('despues: ', known_faces_indexes)
 
     return Gst.PadProbeReturn.OK
 
 
-def write_to_db(known_face_metadata, known_face_encodings):
-    #total_visitors, known_face_metadata, known_face_encodings = get_known_faces_db()
-    biblio.write_to_pickle(known_face_encodings, known_face_metadata, get_output_db_name())
+def write_to_db(known_face_metadata, known_face_encodings, output_db_name):
+    biblio.write_to_pickle(known_face_encodings, known_face_metadata, output_db_name)
 
 
 def draw_bounding_boxes(image, obj_meta, confidence):
@@ -610,10 +687,11 @@ def main(args):
     #print(scfg)
     #quit()
 
-    set_action(actions['find'])
     set_action(actions['read'])
+    set_action(actions['find'])
     action = get_action('simulacro')
     pwd = os.getcwd()
+    camera_id = 'valorQueVieneDeLaConfiguracionDelServidor'
 
     if action == actions['read']:
         output_db_name = pwd + '/data/video_encoded_faces/test_video_default.data'
@@ -627,8 +705,8 @@ def main(args):
         else:
             com.log_error('Unable to open {}'.format(known_faces_db_name))
 
-    set_known_faces_db(total, encodings, metadata)
-    set_output_db_name(output_db_name)
+    set_known_faces_db(camera_id, total, encodings, metadata)
+    set_output_db_name(camera_id, output_db_name)
 
     # Create gstreamer elements */
     # Create Pipeline element that will form a connection of other elements
