@@ -246,7 +246,6 @@ def update_not_applicable_id(camera_id, new_value, best_index = None):
         # check value was not previously registered in list
         if new_value not in not_applicable_id:
             not_applicable_id.append(new_value)
-            print('new_value_into:', new_value, not_applicable_id)
 
 
 def update_known_faces_indexes(new_value, best_index = None):
@@ -257,7 +256,6 @@ def update_known_faces_indexes(new_value, best_index = None):
         # check value was not previously registered in list
         if new_value not in known_faces_indexes:
             known_faces_indexes.append(new_value)
-            print('new_value_into:', new_value, known_faces_indexes)
 
 
 def classify_to_known_and_unknown(camera_id, image, obj_id, name, program_action, confidence, frame_number, delta, default_similarity, known_faces_indexes, known_face_metadata, known_face_encodings):
@@ -549,11 +547,9 @@ def tiler_src_pad_buffer_probe(pad, info, u_data):
         write_to_db(known_face_metadata, known_face_encodings, get_output_db_name(camera_id))
 
         if id_set and known_faces_indexes:
-            print('antes: ', known_faces_indexes)
             known_faces_indexes, tracking_absence_dict = biblio.cleanup_tracking_list(known_faces_indexes, tracking_absence_dict, 80)
             set_tracking_absence_dict(camera_id, tracking_absence_dict)
             set_known_faces_indexes(camera_id, known_faces_indexes)
-            print('despues: ', known_faces_indexes)
 
     return Gst.PadProbeReturn.OK
 
