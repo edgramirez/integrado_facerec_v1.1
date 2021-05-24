@@ -420,19 +420,19 @@ def classify_to_known_and_unknown(camera_id, image, obj_id, name, program_action
                     found_faces[i]['last_seen'].append(today_now)
 
                     if confidence - found_face['confidence'][-1] > 0.0038 and found_faces[i]['difference'][-1] > difference: 
-                        print('Sujeto1 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
+                        #print('Sujeto1 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
                         found_faces[i]['confidence'].append(confidence)
                         found_faces[i]['difference'].append(difference)
                         found_faces[i]['image'].append(image)
 
                     # actualiza las variables globales
-                    print('Sujeto1.1 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
+                    #print('Sujeto1.1 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
                     save_found_faces(camera_id, found_faces)
                     update_known_faces_indexes(camera_id, obj_id)
                     return True
                 i += 1
 
-            print('Sujeto1.2 {}, encontrado en frame {} con id: {} ,confidence: {}, distance: {}'.format(metadata['name'], frame_number, obj_id, confidence, difference))
+            #print('Sujeto1.2 {}, encontrado en frame {} con id: {} ,confidence: {}, distance: {}'.format(metadata['name'], frame_number, obj_id, confidence, difference))
             found_faces.append({
                 'name': metadata['name'],
                 'face_id': [obj_id],
@@ -474,13 +474,13 @@ def classify_to_known_and_unknown(camera_id, image, obj_id, name, program_action
                                     found_faces[i]['seen_frames'].append(frame_number)
 
                                     if found_face['difference'][-1] < difference:
-                                        print('Sujeto2.1 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
+                                        #print('Sujeto2.1 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
                                         found_faces[i]['difference'].append(difference)
                                         found_faces[i]['confidence'].append(confidence)
                                         found_faces[i]['image'].append(image)
 
                                     # actualiza las variables globales
-                                    print('Sujeto2.2 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
+                                    #print('Sujeto2.2 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
                                     save_found_faces(camera_id, found_faces)
                                     update_known_faces_indexes(camera_id, obj_id)
                                     return True
@@ -499,13 +499,13 @@ def classify_to_known_and_unknown(camera_id, image, obj_id, name, program_action
                             found_faces[i]['seen_frames'].append(frame_number)
 
                             if difference < found_face['difference'][-1]:
-                                print('Sujeto2.3 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
+                                #print('Sujeto2.3 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
                                 found_faces[i]['difference'].append(difference)
                                 found_faces[i]['confidence'].append(confidence)
                                 found_faces[i]['image'].append(image)
 
                             # actualiza las variables globales
-                            print('Sujeto2.4 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
+                            #print('Sujeto2.4 {}, encontrado en frame {} con id: {} ,confidence: n{}/o{}, distance: n{}/o{}'.format(metadata['name'], frame_number, obj_id, confidence, found_face['confidence'][-1], difference, found_faces[i]['difference'][-1]))
                             save_found_faces(camera_id, found_faces)
                             update_known_faces_indexes(camera_id, obj_id)
                             return True
