@@ -372,7 +372,7 @@ def classify_to_known_and_unknown(camera_id, image, obj_id, name, program_action
 
             # hay coincidencia alguno de los rostros buscados
             if best_index is None:
-                #update_not_applicable_id(camera_id, obj_id)
+                update_not_applicable_id(camera_id, obj_id)
                 return False
 
             # verificar si ya se encuentra detectado bajo otro id y entonces solo actualiza
